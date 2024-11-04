@@ -1,0 +1,2 @@
+Dataset: Kenya Bird Map Occurrence Data 
+Rights as supplied: http://creativecommons.org/licenses/by/4.0/legalcode
