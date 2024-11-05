@@ -1,0 +1,2 @@
+When using this dataset please use the following citation and pay attention to the rights documented in rights.txt:
+Mukeka J, Hongo P, Matiku P (2019). Kenya Bird Map Occurrence Data. Version 1.5. Kenya Wildlife Service. Occurrence dataset https://doi.org/10.15468/f70xjb accessed via GBIF.org on 2024-11-04.
