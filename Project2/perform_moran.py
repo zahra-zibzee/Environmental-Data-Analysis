@@ -43,7 +43,7 @@ lonely_point_counts = {}
 for order, data in tqdm(df.groupby("order")):
     n_lonely_points: dict[float, int] = {}
     # maps threshold to number of lonely points
-    for i in tqdm(range(1, 40), desc=f"Order: {order:01.4f}"):
+    for i in tqdm(range(1, 40), desc=f"Order: {order: <20}"):
         threshold = (i / 3) ** 0.3
         print(data.shape, threshold)
         with warnings.catch_warnings():
