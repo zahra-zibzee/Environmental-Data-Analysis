@@ -39,7 +39,10 @@ print(f"DataFrame shape: {df.shape}")
 
 morrans = {}
 thresholds = {}
+is_valid = {}
 for order, data in tqdm(df.groupby("order")):
+    n_lonely_points: dict[float, int] = {}
+    # maps threshold to number of lonely points
     for i in tqdm(range(1, 25), desc=order):
         threshold = (i / 3) ** 0.3
         print(data.shape, threshold)
@@ -50,19 +53,20 @@ for order, data in tqdm(df.groupby("order")):
                 threshold=threshold,
             )
         if len(w.neighbors) == 1:
+            is_valid[order] = True
             break
+        else:
+            n_lonely_points[threshold] = sum(
+                [1 for v in w.neighbors.values() if len(v) == 0]
+            )
     else:
+        best_threshold = max(n_lonely_points, key=n_lonely_points.get)
         print(
-            f"Threshold for {order} not found, using {threshold} instead and biggest neighbor"
+            f"Threshold for {order} not found, using {best_threshold}, which has {n_lonely_points[best_threshold]} lonely points (smallest number of lonely points)"
         )
-        data = data.copy()
-        lonely_points = [i for i in range(data.shape[0]) if len(w.neighbors[i]) <= 1]
-        # remove lonely points
-        data.drop(lonely_points, inplace=True)
-        w = libpysal.weights.DistanceBand.from_array(
-            data[["decimalLongitude", "decimalLatitude"]].values, threshold=threshold
-        )
-    assert len(w.neighbors) != 1, "No neighbors found"
+        is_valid[order] = False
+
+    # assert len(w.neighbors) != 1, "No neighbors found"
     thresholds[order] = threshold
     print(f"Threshold for {order}: {threshold}")
     moran = Moran(data["individualCount"].values, w)
