@@ -40,7 +40,7 @@ print(f"DataFrame shape: {df.shape}")
 morrans = {}
 thresholds = {}
 for order, data in tqdm(df.groupby("order")):
-    for i in tqdm(range(1, 10), desc=order):
+    for i in tqdm(range(1, 25), desc=order):
         threshold = (i / 3) ** 0.3
         print(data.shape, threshold)
         with warnings.catch_warnings():
