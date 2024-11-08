@@ -1,3 +1,4 @@
+import gc
 import libpysal
 import pandas as pd
 from esda.moran import Moran
@@ -83,6 +84,10 @@ for order, data in tqdm(df.groupby("order")):
     results_df[["morans_I", "morans_p_sim"]] = pd.DataFrame(
         results_df["morans"].tolist(), index=results_df.index
     )
-    # results_df.drop(columns=["morans"], inplace=True)
+    results_df.drop(columns=["morans"], inplace=True)
     print(results_df)
     results_df.to_csv("morans.csv")
+
+    del w
+    del moran
+    gc.collect()
