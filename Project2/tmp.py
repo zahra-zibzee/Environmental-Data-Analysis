@@ -43,7 +43,7 @@ is_valid = {}
 for order, data in tqdm(df.groupby("order")):
     n_lonely_points: dict[float, int] = {}
     # maps threshold to number of lonely points
-    for i in tqdm(range(1, 25), desc=order):
+    for i in tqdm(range(1, 40), desc=order):
         threshold = (i / 3) ** 0.3
         print(data.shape, threshold)
         with warnings.catch_warnings():
