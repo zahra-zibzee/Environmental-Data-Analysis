@@ -1,4 +1,5 @@
 import gc
+import os
 import libpysal
 import pandas as pd
 from esda.moran import Moran
@@ -41,7 +42,20 @@ morrans = {}
 thresholds = {}
 lonely_point_counts = {}
 
+if "morans.csv" in os.listdir():
+    morans_df = pd.read_csv("morans.csv", index_col=0)
+    calculated_orders = morans_df.index
+    morrans = morans_df[["morans_I", "morans_p_sim"]].to_dict(orient="index")
+    thresholds = morans_df["threshold"].to_dict()
+    lonely_point_counts = morans_df["lonely_points"].to_dict()
+    print(
+        f"Loaded previous results,{calculated_orders=}\n{morrans=}\n{thresholds=}\n{lonely_point_counts=}"
+    )
+
 for order, data in tqdm(df.groupby("order")):
+    if order in calculated_orders:
+        print(f"Skipping {order}")
+        continue
     n_lonely_points: dict[float, int] = {}
     # maps threshold to number of lonely points
     for i in tqdm(range(1, 40), desc=f"Order: {order: <20}"):
