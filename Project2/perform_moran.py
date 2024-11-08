@@ -75,15 +75,14 @@ for order, data in tqdm(df.groupby("order")):
     moran = Moran(data["individualCount"].values, w)
     morrans[order] = [moran.I, moran.p_sim]
 
+    results_df = pd.DataFrame(
+        [morrans, thresholds, lonely_point_counts],
+        index=["morans", "threshold", "lonely_points"],
+    ).T
 
-results_df = pd.DataFrame(
-    [morrans, thresholds, lonely_point_counts],
-    index=["morans", "threshold", "lonely_points"],
-).T
-
-results_df[["morans_I", "morans_p_sim"]] = pd.DataFrame(
-    results_df["morans"].tolist(), index=results_df.index
-)
-results_df.drop(columns=["morans"], inplace=True)
-print(results_df)
-results_df.to_csv("morans.csv")
+    results_df[["morans_I", "morans_p_sim"]] = pd.DataFrame(
+        results_df["morans"].tolist(), index=results_df.index
+    )
+    # results_df.drop(columns=["morans"], inplace=True)
+    print(results_df)
+    results_df.to_csv("morans.csv")
