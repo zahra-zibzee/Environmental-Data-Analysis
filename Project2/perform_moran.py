@@ -1,4 +1,3 @@
-import gc
 import libpysal
 import pandas as pd
 from esda.moran import Moran
@@ -39,11 +38,12 @@ print(f"DataFrame shape: {df.shape}")
 
 morrans = {}
 thresholds = {}
-is_valid = {}
+lonely_point_counts = {}
+
 for order, data in tqdm(df.groupby("order")):
     n_lonely_points: dict[float, int] = {}
     # maps threshold to number of lonely points
-    for i in tqdm(range(1, 40), desc=order):
+    for i in tqdm(range(1, 40), desc=f"Order: {order:01.4f}"):
         threshold = (i / 3) ** 0.3
         print(data.shape, threshold)
         with warnings.catch_warnings():
@@ -52,25 +52,38 @@ for order, data in tqdm(df.groupby("order")):
                 data[["decimalLongitude", "decimalLatitude"]].values,
                 threshold=threshold,
             )
-        if len(w.neighbors) == 1:
-            is_valid[order] = True
+        n_lonely_points[threshold] = (
+            nlp := sum([1 for v in w.neighbors.values() if len(v) == 0])
+        )
+        if nlp == 0:
+            lonely_point_counts[order] = 0
+            print(f"Threshold for {order}: {threshold}")
             break
         else:
             n_lonely_points[threshold] = sum(
                 [1 for v in w.neighbors.values() if len(v) == 0]
             )
     else:
-        best_threshold = max(n_lonely_points, key=n_lonely_points.get)
+        threshold = max(n_lonely_points, key=n_lonely_points.get)  # type: ignore
         print(
-            f"Threshold for {order} not found, using {best_threshold}, which has {n_lonely_points[best_threshold]} lonely points (smallest number of lonely points)"
+            f"Threshold for {order} not found, using {threshold}, which has {n_lonely_points[threshold]} lonely points (smallest number of lonely points)"
         )
-        is_valid[order] = False
+        lonely_point_counts[order] = n_lonely_points[threshold]
 
     # assert len(w.neighbors) != 1, "No neighbors found"
     thresholds[order] = threshold
-    print(f"Threshold for {order}: {threshold}")
     moran = Moran(data["individualCount"].values, w)
-    print(moran.I, moran.p_sim)
     morrans[order] = [moran.I, moran.p_sim]
 
-print(morrans, thresholds)
+
+results_df = pd.DataFrame(
+    [morrans, thresholds, lonely_point_counts],
+    index=["morans", "threshold", "lonely_points"],
+).T
+
+results_df[["morans_I", "morans_p_sim"]] = pd.DataFrame(
+    results_df["morans"].tolist(), index=results_df.index
+)
+results_df.drop(columns=["morans"], inplace=True)
+print(results_df)
+results_df.to_csv("morans.csv")

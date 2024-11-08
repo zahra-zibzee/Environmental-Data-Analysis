@@ -1,3 +1,5 @@
 *.zip
 .DS_Store
 venv/
+mypy.ini
+Project2/tmp.py
