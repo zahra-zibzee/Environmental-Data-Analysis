@@ -1,5 +1,9 @@
+from contextlib import contextmanager
 import gc
 import os
+import signal
+from sqlite3 import Time
+import time
 import libpysal
 import pandas as pd
 from esda.moran import Moran
@@ -21,6 +25,19 @@ def clean_dataframe(
         print(f"{shape[0] - df.shape[0]} rows were dropped")
         print(f"{shape[1] - df.shape[1]} columns were dropped")
     return df
+
+
+@contextmanager
+def time_limit(seconds):
+    def signal_handler(signum, frame):
+        raise TimeoutError("Timed out!")
+
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
 
 
 df_kenya_birds1_raw = pd.read_csv("./data/simple/simple.csv", sep="\t")
@@ -56,20 +73,25 @@ for order, data in tqdm(df.groupby("order")):
     if order in calculated_orders:
         print(f"Skipping {order}")
         continue
-    n_lonely_points: dict[float, int] = {}
+    n_lonely_points: dict[float, int | float] = {}
     # maps threshold to number of lonely points
     for i in tqdm(range(1, 40), desc=f"Order: {order: <20}"):
         threshold = (i / 3) ** 0.3
         print(data.shape, threshold)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=UserWarning)
-            w = libpysal.weights.DistanceBand.from_array(
-                data[["decimalLongitude", "decimalLatitude"]].values,
-                threshold=threshold,
+        try:
+            with warnings.catch_warnings(), time_limit(seconds=10 * 60) as tl:
+                warnings.simplefilter("ignore", category=UserWarning)
+                w = libpysal.weights.DistanceBand.from_array(
+                    data[["decimalLongitude", "decimalLatitude"]].values,
+                    threshold=threshold,
+                )
+            n_lonely_points[threshold] = (
+                nlp := sum([1 for v in w.neighbors.values() if len(v) == 0])
             )
-        n_lonely_points[threshold] = (
-            nlp := sum([1 for v in w.neighbors.values() if len(v) == 0])
-        )
+        except TimeoutError:
+            print(f"Threshold for {order}: {threshold} timed out")
+            n_lonely_points[threshold] = float("inf")
+            continue
         if nlp == 0:
             lonely_point_counts[order] = 0
             print(f"Threshold for {order}: {threshold}")
@@ -79,7 +101,7 @@ for order, data in tqdm(df.groupby("order")):
                 [1 for v in w.neighbors.values() if len(v) == 0]
             )
     else:
-        threshold = max(n_lonely_points, key=n_lonely_points.get)  # type: ignore
+        threshold = max(n_lonely_points, key=n_lonely_points.get, default=3)  # type: ignore
         print(
             f"Threshold for {order} not found, using {threshold}, which has {n_lonely_points[threshold]} lonely points (smallest number of lonely points)"
         )
