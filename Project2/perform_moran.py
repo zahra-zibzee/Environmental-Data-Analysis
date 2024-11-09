@@ -70,6 +70,7 @@ if "morans.csv" in os.listdir():
     )
 
 for order, data in tqdm(df.groupby("order")):
+    print(f"Processing {order}")
     if order in calculated_orders:
         print(f"Skipping {order}")
         continue
@@ -79,7 +80,7 @@ for order, data in tqdm(df.groupby("order")):
         threshold = (i / 3) ** 0.3
         print(data.shape, threshold)
         try:
-            with warnings.catch_warnings(), time_limit(seconds=10 * 60) as tl:
+            with warnings.catch_warnings(), time_limit(seconds=5 * 60) as tl:
                 warnings.simplefilter("ignore", category=UserWarning)
                 w = libpysal.weights.DistanceBand.from_array(
                     data[["decimalLongitude", "decimalLatitude"]].values,
