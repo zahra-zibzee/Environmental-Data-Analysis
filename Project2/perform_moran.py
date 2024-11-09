@@ -45,7 +45,7 @@ lonely_point_counts = {}
 if "morans.csv" in os.listdir():
     morans_df = pd.read_csv("morans.csv", index_col=0)
     calculated_orders = morans_df.index
-    morrans = morans_df[["morans_I", "morans_p_sim"]].to_dict(orient="index")
+    morrans = morans_df[["morans_I", "morans_p_sim"]].T.to_dict(orient="list")
     thresholds = morans_df["threshold"].to_dict()
     lonely_point_counts = morans_df["lonely_points"].to_dict()
     print(
