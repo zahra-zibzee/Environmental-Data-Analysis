@@ -4,3 +4,4 @@ venv/
 mypy.ini
 Project2/tmp.py
 Project2/slurm-*.out
+__pycache__/
