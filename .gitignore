@@ -6,3 +6,4 @@ Project2/tmp.py
 Project2/slurm-*.out
 __pycache__/
 .ipynb_checkpoints/
+Project2/image.png
