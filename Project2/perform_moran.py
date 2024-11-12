@@ -102,7 +102,7 @@ for order, data in tqdm(df.groupby("order")):
                 [1 for v in w.neighbors.values() if len(v) == 0]
             )
     else:
-        threshold = max(n_lonely_points, key=n_lonely_points.get, default=3)  # type: ignore
+        threshold = min(n_lonely_points, key=n_lonely_points.get, default=3)  # type: ignore
         print(
             f"Threshold for {order} not found, using {threshold}, which has {n_lonely_points[threshold]} lonely points (smallest number of lonely points)"
         )
