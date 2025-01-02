@@ -1,0 +1,194 @@
+```{python}
+import os
+import numpy as np
+import pandas as pd
+import laspy
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import rasterio
+from rasterio.plot import show
+import cv2
+
+
+def lidar_to_point_cloud(lidar_file: str | os.PathLike) -> np.ndarray:
+    """Read a LiDAR file and return a NumPy array of points."""
+    las = laspy.read(lidar_file)
+    points = np.vstack((las.x, las.y, las.z)).transpose()
+    return points
+
+
+def visualize_lidar(lidar_file: str | os.PathLike):
+    """Visualize a LiDAR point cloud file (.las or .laz)."""
+    points = lidar_to_point_cloud(lidar_file)
+    print(points.shape)
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.scatter(
+        points[:, 0], points[:, 1], points[:, 2], c=points[:, 2], cmap="viridis", s=0.5
+    )
+    ax.set_title("LiDAR Point Cloud Visualization")
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    plt.show()
+
+
+visualize_lidar("data/als/plot_01.las")
+```
+
+
+```{python}
+points_01 = lidar_to_point_cloud("data/als/plot_01.las")
+IQRz = np.percentile(points_01[:, 2], 75) - np.percentile(points_01[:, 2], 25)
+plt.hist(points_01[:, 2], bins=100, color="blue", alpha=0.7)
+plt.axvline(np.percentile(points_01[:, 2], 25) - 1.5 * IQRz, color="red", linestyle="--")
+plt.axvline(np.percentile(points_01[:, 2], 75) + 1.5 * IQRz, color="red", linestyle="--")
+plt.title("Histogram of Z Values (Plot 01)")
+plt.xlabel("Z Value")
+plt.ylabel("Frequency")
+plt.show()
+```
+
+
+Converting a point cloud (shape `(218000, 3)`, representing 3D points (x, y, z)) into a 2D depth image involves projecting the 3D points onto a 2D plane and encoding the depth information (usually the z-coordinate or distance from the camera).
+
+Here’s how you can do it:
+
+### Steps:
+
+1. **Define the camera projection:**
+   - Choose a camera's intrinsic parameters (focal length, principal point, etc.).
+   - Set the resolution of the depth image (e.g., 640 \times 480).
+
+2. **Project points to the 2D plane:**
+   - Convert (x, y, z) into image coordinates (u, v) using:
+     \[
+     u = f_x \cdot \frac{x}{z} + c_x, \quad v = f_y \cdot \frac{y}{z} + c_y
+     \]
+     where f_x, f_y are the focal lengths (in pixels), and c_x, c_y are the principal points (image center).
+
+3. **Create a depth map:**
+   - Map each 3D point to its corresponding (u, v) pixel in the 2D image.
+   - Store the z-value (or -z for convention) in the depth map at (u, v).
+   - Handle occlusions by keeping the smallest z-value for each (u, v) to ensure only the closest point is recorded.
+
+4. **Normalize depth values:**
+   - Scale the depth values to a range suitable for visualization (e.g., 0–255 for 8-bit images).
+
+---
+
+But we dint the camera intrinsic parameters. Since we are going to map from the top, we will use this method:
+
+Group by x and y, and get the maximum z value. This will give us the depth map.
+
+For better results, we can remove the height values that are outliers. We can use the IQR method to remove the outliers.
+
+```{python}
+points = pd.DataFrame(lidar_to_point_cloud("data/als/plot_01.las"), columns=["x", "y", "z"])
+points["x"] = points["x"].astype(int)
+points["y"] = points["y"].astype(int)
+depth_map = points.groupby(["x", "y"])["z"].max().reset_index()
+Q1 = np.percentile(depth_map["z"], 25)
+Q3 = np.percentile(depth_map["z"], 75)
+IQR = Q3 - Q1
+plt.hist(depth_map["z"], bins=100, color="b", alpha=0.7)
+plt.axvline(Q1 - 1.5 * IQR, color="r", linestyle="--")
+# plt.axvline(Q3 + 1.5 * IQR, color="r", linestyle="--")
+plt.title("Histogram of Depth Map")
+plt.xlabel("Depth Value")
+plt.ylabel("Frequency")
+plt.show()
+```
+
+```{python}
+# Remove outliers
+depth_map = depth_map[
+    (depth_map["z"] >= Q1 - 1.5 * IQR) & (depth_map["z"] <= Q3 + 1.5 * IQR)
+]
+
+# convert the point cloud to a depth map
+depth_map["x"] = (depth_map["x"] - depth_map["x"].min()).astype(int)
+depth_map["y"] = (depth_map["y"] - depth_map["y"].min()).astype(int)
+img = np.zeros((depth_map["x"].max() + 1, depth_map["y"].max() + 1)) + depth_map["z"].min()
+print(img.size, img.shape)
+print(depth_map.shape)
+img[depth_map["x"], depth_map["y"]] = depth_map["z"]
+img = (img / img.max() * 255).astype(np.uint8)
+
+# histogram equalization
+img = cv2.equalizeHist(img)
+
+print(img, img.dtype)
+# plt.hist(img.flatten(), bins=255, range=(0, 255), color="b", alpha=0.7)
+
+
+plt.figure(figsize=(10, 10))
+plt.imshow(img, cmap="gray")
+plt.axis("off")
+plt.title("Depth Map")
+plt.show()
+```
+
+
+```{python}
+def take_photo_from_top(points, step=0.1):
+    # TODO: use predefined step size instead of 1
+    points["x"] = points["x"].astype(int)
+    points["y"] = points["y"].astype(int)
+    depth_map = points.groupby(["x", "y"])["z"].max().reset_index()
+    return depth_map
+
+
+depth_map = take_photo_from_top(
+    pd.DataFrame(lidar_to_point_cloud("data/als/plot_01.las"), columns=["x", "y", "z"])
+)
+
+x, y = 547083.814999999012798, 6450346.83899999037385
+t = 1
+tmp = depth_map[
+    (depth_map["x"] >= x - t)
+    & (depth_map["x"] <= x + t)
+    & (depth_map["y"] >= y - t)
+    & (depth_map["y"] <= y + t)
+]
+print(tmp)
+```
+
+```{python}
+
+def create_depth_map(points, resolution=(320, 240)):
+    """Create a depth map from 3D points."""
+    depth_map = take_photo_from_top(points)
+    for col in ["x", "y", 'z']:
+        depth_map[col] -= depth_map[col].min()
+        # we can not ues depth_map -= depth_map.min() because we need to preserve the columns dtypes
+        # and also, we dnot want to do it for all columns
+
+    # depth_map["x"] = (depth_map["x"] / depth_map["x"].max() * (resolution[0] - 1)).astype(int)
+    # depth_map["y"] = (depth_map["y"] / depth_map["y"].max() * (resolution[1] - 1)).astype(int)
+    # depth_map['x'] = depth_map['x'].astype(int)
+    # depth_map['y'] = depth_map['y'].astype(int)  
+    img = np.zeros((depth_map["x"].max() + 1, depth_map["y"].max() + 1)) -1
+    # print(img.shape)
+    img[depth_map["x"], depth_map["y"]] = depth_map["z"]
+    print(img)
+    print(img[img == -1].shape)
+    img = (img / img.max() * 255).astype(np.uint8)
+    # TODO: maybe we need to histogram equalize the image
+    return img
+
+
+depth_img = create_depth_map(
+    pd.DataFrame(lidar_to_point_cloud("data/als/plot_01.las"), columns=["x", "y", "z"])
+)
+
+plt.figure(figsize=(10, 10))
+plt.imshow(depth_img, cmap="gray")
+plt.axis("off")
+plt.title("Depth Map")
+plt.show()
+```
+
+```{python}
+
+```
