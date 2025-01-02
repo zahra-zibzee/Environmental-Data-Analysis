@@ -1,0 +1,50 @@
+
+```{python}
+import json
+import pandas as pd
+```
+
+```{python}
+
+
+def lidar_to_point_cloud(lidar_file: str | os.PathLike) -> np.ndarray:
+    """Read a LiDAR file and return a NumPy array of points."""
+    las = laspy.read(lidar_file)
+    points = np.vstack((las.x, las.y, las.z)).transpose()
+    return points
+
+def tree_scope_definition(depth_img_df: pd.DataFrame, plot_num):
+    # read geojson file into dataframe
+    with open("data/field_survey.geojson") as f:
+        data = json.load(f)
+    data = pd.DataFrame([i["properties"] | i['geometry'] for i in data["features"]])
+    data['x'] = data['coordinates'].apply(lambda x: x[0])
+    data['y'] = data['coordinates'].apply(lambda x: x[1])
+    data = data.drop(columns=['coordinates'])
+
+    # filter data by plot number
+    data = data[data["plot"] == plot_num]
+    
+    # adding label column to depth_img_df
+    depth_img_df["label"] = 0
+
+    # label data points from depth_img_df that are in the circle, with the center of x, y and radius of dbh from data
+    for index, row in data.iterrows():
+        x, y, r = row["x"], row["y"], row["dbh"]
+        tmp = depth_img_df[
+            (depth_img_df["x"] >= x - r)        # TODO
+            & (depth_img_df["x"] <= x + r)
+            & (depth_img_df["y"] >= y - r)
+            & (depth_img_df["y"] <= y + r)
+        ]
+        print(tmp)
+        # adding label to the points in the circle
+        depth_img_df.loc[tmp.index, "label"] = index
+
+    return depth_img_df
+        
+
+df = tree_scope_definition(pd.DataFrame(lidar_to_point_cloud("data/als/plot_01.las"), columns=["x", "y", "z"]), 1)
+
+df["label"].value_counts()
+```
