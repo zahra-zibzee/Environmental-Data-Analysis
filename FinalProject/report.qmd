@@ -9,6 +9,7 @@ import rasterio
 from rasterio.plot import show
 import cv2
 import json
+import glob
 
 
 def lidar_to_point_cloud(lidar_file: str | os.PathLike) -> np.ndarray:
@@ -295,5 +296,159 @@ plt.imshow(mask, cmap="gray")
 plt.axis("off")
 plt.title("Mask")
 plt.show()
+```
+
+### Create The data set
+
+Now we will apply use the above functions to create the 2D images and the mask for all of the data area.
+
+
+```{python}
+
+def calculate_rotation_angle(points):
+    """
+    Calculate the angle of rotation for a quadrilateral based on its four corner points.
+
+    Parameters:
+    points (list or np.ndarray): A list or array of four points, each represented as [x, y].
+                                 The points should be in any order.
+
+    Returns:
+    float: The rotation angle (in degrees) of the top edge with respect to the horizontal axis.
+    """
+    # Ensure points are a NumPy array
+    points = np.array(points)
+
+    # Sort points by their y-coordinates (to distinguish top and bottom)
+    points = points[np.argsort(points[:, 1])]
+
+    # Extract top and bottom points
+    top_points = points[:2]  # First two are the top points
+    bottom_points = points[2:]  # Last two are the bottom points
+
+    # Further sort top and bottom points by their x-coordinates
+    top_left, top_right = top_points[np.argsort(top_points[:, 0])]
+    bottom_left, bottom_right = bottom_points[np.argsort(bottom_points[:, 0])]
+
+    # Calculate the angle of the top edge
+    dx = top_right[0] - top_left[0]
+    dy = top_right[1] - top_left[1]
+    angle = np.degrees(np.arctan2(dy, dx))
+
+    return angle
+
+def turn_points(points, angle):
+    """
+    Rotate a set of points by a given angle around the origin.
+
+    Parameters:
+    points (np.ndarray): An array of points, each represented as [x, y].
+    angle (float): The angle of rotation (in degrees).
+
+    Returns:
+    np.ndarray: An array of rotated points.
+    """
+    # Convert the angle to radians
+    angle = np.radians(angle)
+
+    # Define the rotation matrix
+    rotation_matrix = np.array(
+        [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+    )
+
+    # Rotate the points
+    rotated_points = points @ rotation_matrix
+
+    return rotated_points
+
+
+```
+```{python}
+def create_dataset(
+    data_folder: str | os.PathLike, step: float = 0.1, remove_outliers: bool = True
+) -> tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
+    """Create a dataset from the LiDAR data."""
+    depth_imgs, masks, missing_pixels, angles = [], [], [], []
+    for las_file in glob.glob(os.path.join(data_folder, "*.las")):
+        plot_num = int(os.path.splitext(os.path.basename(las_file))[0].split("_")[-1])
+        raw_depth_map = pd.DataFrame(
+            lidar_to_point_cloud(las_file), columns=["x", "y", "z"]
+        )
+        gt_depth_map = tree_scope_definition(raw_depth_map, plot_num)
+
+        most_left_point = gt_depth_map.loc[gt_depth_map["x"].idxmin()]
+        most_right_point = gt_depth_map.loc[gt_depth_map["x"].idxmax()]
+
+        most_bottom_point = gt_depth_map.loc[gt_depth_map["y"].idxmin()]
+        most_top_point = gt_depth_map.loc[gt_depth_map["y"].idxmax()]
+
+        angle = calculate_rotation_angle(
+            [
+                [most_left_point["x"], most_left_point["y"]],
+                [most_right_point["x"], most_right_point["y"]],
+                [most_bottom_point["x"], most_bottom_point["y"]],
+                [most_top_point["x"], most_top_point["y"]],
+            ]
+        )
+
+        gt_depth_map[["x", "y"]] = turn_points(gt_depth_map[["x", "y"]], angle)
+
+        depth_map = take_photo_from_top(
+            gt_depth_map, step=step, remove_outliers=remove_outliers
+        )
+        depth_img, mask, missing_pixel = create_depth_img(depth_map)
+        depth_imgs.append(depth_img)
+        masks.append(mask)
+        missing_pixels.append(missing_pixel)
+        angles.append(angle)
+    return depth_imgs, masks, missing_pixels, angles
+
+
+all_depth_imgs, all_masks, all_missing_pixels, angles = create_dataset("data/als")
+
+```
+
+```{python}
+fig, axes = plt.subplots(5, 2, figsize=(10, 25))
+axes = axes.flatten()
+if len(all_depth_imgs) > len(axes):
+    indices = np.random.choice(range(len(all_depth_imgs)), len(axes), replace=False)
+else:
+    indices = range(len(all_depth_imgs))
+
+for i, ax in zip(indices, axes):
+    depth_img, mask, missing_pixel = (
+        all_depth_imgs[i],
+        all_masks[i],
+        all_missing_pixels[i],
+    )
+    depth_img_3d = cv2.cvtColor(depth_img, cv2.COLOR_GRAY2RGB)
+    depth_img_3d[mask == 1] = [255, 0, 0]
+    # depth_img_3d[missing_pixel == 1] = [0, 0, 255]
+
+    ax.imshow(depth_img_3d)
+    ax.axis("off")
+    ax.set_title(f"Plot {i + 1}, Angle: {angles[i]:.2f}°")
+plt.tight_layout()
+plt.show()
+```
+
+
+## Apply Unet to learn all of them
+
+```{python}
+import torch
+import segmentation_models_pytorch as smp
+
+# Load a pretrained U-Net model with ResNet34 backbone
+model = smp.Unet(
+    encoder_name="resnet34",  # choose encoder, e.g. mobilenet_v2, efficientnet-b7
+    encoder_weights="imagenet",  # use pretrained weights
+    in_channels=3,  # input channels (e.g. 3 for RGB)
+    classes=1,
+)  # output channels (e.g. 1 for binary segmentation)
+
+# Check the model summary
+print(model)
 ```
 
