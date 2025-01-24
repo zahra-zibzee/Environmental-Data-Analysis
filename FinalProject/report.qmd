@@ -12,6 +12,12 @@ execute:
 }
 </style>
 
+# Introduction
+In this project, we are going to work with preprocessed LiDAR point cloud data of 10 ground plots (all same size) of a forest in Russia. The goal is to identify the trees in the plots. Our group has chosen task no. 4, which first, we are going to create depth images out of point cloud datasets for each plot, segmenting the trees based on the ground truth we have for individual trees, then, we are going to apply Unet or ResNet to identify those individual trees in the depth images. 
+
+
+In the cell below, you can see a visualisation of plot 1.
+
 ```{python}
 import os
 import numpy as np
@@ -53,6 +59,10 @@ visualize_lidar("data/als/plot_01.las")
 ```
 
 
+# Data Preprocessing
+
+here, a histogram of the Z values of the point cloud is plotted. The red dashed lines represent the first and third quartiles plus/minus 1.5 times the IQR.
+
 ```{python}
 points_01 = lidar_to_point_cloud("data/als/plot_01.las")
 IQRz = np.percentile(points_01[:, 2], 75) - np.percentile(points_01[:, 2], 25)
@@ -66,11 +76,11 @@ plt.show()
 ```
 
 
+## General Method to Create Depth Images
+
 Converting a point cloud (shape `(218000, 3)`, representing 3D points (x, y, z)) into a 2D depth image involves projecting the 3D points onto a 2D plane and encoding the depth information (usually the z-coordinate or distance from the camera).
 
 Here’s how you can do it:
-
-### Steps:
 
 1. **Define the camera projection:**
    - Choose a camera's intrinsic parameters (focal length, principal point, etc.).
@@ -93,11 +103,13 @@ Here’s how you can do it:
 
 ---
 
-But we dint the camera intrinsic parameters. Since we are going to map from the top, we will use this method:
+## Depth Image Creation
 
-Group by x and y, and get the maximum z value. This will give us the depth map.
+But we don't have the camera intrinsic parameters. Since we are going to map from the top, we will use this method:
 
-For better results, we can remove the height values that are outliers. We can use the IQR method to remove the outliers.
+Group by x and y, and get the maximum z value. This will give us the depth map. Then we will normalize the z-values to 0-255, to get the grayscale image.
+
+For better results, we remove the height values that are outliers. We use the IQR method to remove the outliers. 
 
 ```{python}
 points = pd.DataFrame(lidar_to_point_cloud("data/als/plot_01.las"), columns=["x", "y", "z"])
@@ -109,12 +121,14 @@ Q3 = np.percentile(depth_map["z"], 75)
 IQR = Q3 - Q1
 plt.hist(depth_map["z"], bins=100, color="b", alpha=0.7)
 plt.axvline(Q1 - 1.5 * IQR, color="r", linestyle="--")
-# plt.axvline(Q3 + 1.5 * IQR, color="r", linestyle="--")
+plt.axvline(Q3 + 1.5 * IQR, color="r", linestyle="--")
 plt.title("Histogram of Depth Map")
 plt.xlabel("Depth Value")
 plt.ylabel("Frequency")
 plt.show()
 ```
+
+here is a representation of the depth map of plot 1.
 
 ```{python}
 # Remove outliers
@@ -148,7 +162,9 @@ plt.show()
 
 Now lets put everything in a function and use step as a parameter to group the points.
 
+The above cells represent the steps we plan to take. The taken steps are outlined in the following implemented functions.
 
+In the `tree_scope_definition` function, based on the location of individual trees in the ground truth geojson file, we label the points in the depth image that are within the circle of the tree's location and diameter. The function returns the depth image with the labeled points.
 
 ```{python}
 from functools import lru_cache
@@ -229,7 +245,7 @@ def take_photo_from_top(points, step=0.1, remove_outliers=True):
     # assert (
     #     a := points.groupby(["x", "y"])["label"].nunique()
     # ).max() == 1, f"There are multiple points in the same x, y, but {a[a > 1]} has multiple points "
-    print(points)
+    # print(points)
     points[["x", "y"]] = points[["x", "y"]] // step * step
     depth_map = points.groupby(["x", "y"])[["z", "label"]].max().reset_index()
     if remove_outliers:
@@ -262,8 +278,6 @@ plt.show()
 
 
 ```{python}
-
-
 def create_depth_img(depth_map: pd.DataFrame) -> np.ndarray:
     """Create a depth map from 3D points."""
 
@@ -297,7 +311,7 @@ raw_depth_map = pd.DataFrame(
 )
 gt_depth_map = tree_scope_definition(raw_depth_map, 1)
 depth_map = take_photo_from_top(gt_depth_map)
-print(depth_map.columns)
+# print(depth_map.columns)
 depth_img, mask, missing_pixels = create_depth_img(depth_map)
 
 depth_img_3d = cv2.cvtColor(depth_img, cv2.COLOR_GRAY2RGB)
@@ -311,6 +325,8 @@ plt.title("Depth Map")
 plt.show()
 ```
 
+The mask image is showing the identified tree points in the depth image. 
+
 ```{python}
 plt.figure(figsize=(10, 10))
 plt.imshow(mask, cmap="gray")
@@ -319,9 +335,42 @@ plt.title("Mask")
 plt.show()
 ```
 
-### Create The data set
+## Plot Rotation (Data Preprocessing)
 
-Now we will apply use the above functions to create the 2D images and the mask for all of the data area.
+If we take a look at original plots, we realize that the rectangles have been rotated. 
+In order to rotate the images, we will take the following steps:
+
+To calculate the rotation angle:
+    - Sort the points by their y-coordinates to distinguish the top (2 points) and bottom (the rest) points.
+    - Further sort the top points by their x-coordinates.
+    - To calculate the angle, use arctan2(dy, dx) where dx and dy are the differences in x and y coordinates of the top points.
+
+    $$
+    \[
+    \text{atan2}(y, x) =
+    \begin{cases} 
+    \arctan\left(\frac{y}{x}\right) & \text{if } x > 0, \\[10pt]
+    \arctan\left(\frac{y}{x}\right) + \pi & \text{if } x < 0 \text{ and } y \geq 0, \\[10pt]
+    \arctan\left(\frac{y}{x}\right) - \pi & \text{if } x < 0 \text{ and } y < 0, \\[10pt]
+    +\frac{\pi}{2} & \text{if } x = 0 \text{ and } y > 0, \\[10pt]
+    -\frac{\pi}{2} & \text{if } x = 0 \text{ and } y < 0, \\[10pt]
+    \text{undefined} & \text{if } x = 0 \text{ and } y = 0.
+    \end{cases}
+    \]
+    $$
+
+
+
+To rotate the points:
+    - Define a rotation matrix using the angle.
+    $$\begin{bmatrix}
+    \cos(\theta) & -\sin(\theta) \\
+    \sin(\theta) & \cos(\theta)
+    \end{bmatrix}$$
+    - Rotate the points using the rotation matrix:
+        `rotated_points = points @ rotation_matrix`
+    - Adjust the rotation based on the orientation (landscape or portrait).
+
 
 
 ```{python}
@@ -406,6 +455,9 @@ def turn_points(points, angle, orientation = "landscape"):
 
 
 ```
+
+## Create The Depth Images for all the Data Grounds
+
 ```{python}
 def create_dataset(
     data_folder: str | os.PathLike,
@@ -458,6 +510,8 @@ all_depth_imgs, all_masks, all_missing_pixels, angles = create_dataset(
 
 ```
 
+## Visualize the Depth Images - No Rotation
+
 ```{python}
 fig, axes = plt.subplots(5, 2, figsize=(10, 25))
 axes = axes.flatten()
@@ -483,7 +537,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-Now let's turn the images to make them landscape.
+## Visualize the Depth Images - With Rotation (Landscape)
 
 ```{python}
 all_depth_imgs, all_masks, all_missing_pixels, angles = create_dataset(
@@ -517,7 +571,8 @@ Let's check the images sizes:
 for img in all_depth_imgs:
     print(img.shape)
 ``` 
-These images are too big,let's split each image into several patches and use them as the input of the model.
+
+These images are too big, let's split each image into several patches and use them as the input of the model.
 
 ```{python}
 def split_image_into_patches(
@@ -558,9 +613,9 @@ x_data.shape, y_data.shape
 ```
 
 
-# Unet
+# Model design and training process
 
-## Model Architecture
+## Model Architecture - Unet
 ```{python}
 # | echo: false
 # | eval: false
@@ -579,15 +634,40 @@ model = smp.Unet(
 print(model)
 ```
 
-We tooked the Unet model from [this repo](https://github.com/milesial/Pytorch-UNet/tree/master/unet) and we will use it to train our model.
+We took the Unet model from [this repo](https://github.com/milesial/Pytorch-UNet/tree/master/unet) and we will use it to train our model.
+
+
+## Data Loading and Training
 
 ```{python}
-from unet_model import UNet
+from model_training import train_model
 
-model = UNet(n_channels=1, n_classes=2)
-print(model)
+all_train_loss, all_val_loss = train_model(x_data, y_data, model_save_path='unet_model.pth', epochs=10, batch_size=16, learning_rate=1e-3)
+
 ```
 
+```{python}
+plt.figure(figsize=(10, 5))
+plt.plot(all_train_loss, label="Train Loss")
+plt.plot(all_val_loss, label="Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.title("Training and Validation Loss")
+plt.legend()
+plt.show()
+```
+
+## Model Evaluation
+```{python}
+from model_training import UNet
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = UNet(n_channels=1, n_classes=2)
+print(model)
+model.load_state_dict(torch.load('unet_model.pth', map_location=device))
+model.eval()
+
+```
 
 ## Dataset
 
@@ -703,7 +783,8 @@ val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = UNet(n_channels=1, n_classes=1).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
-criterion = nn.BCEWithLogitsLoss()
+# criterion = nn.BCEWithLogitsLoss()
+criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2.0]).to(device))
 
 all_train_loss, all_val_loss = [], []
 epochs = 10
@@ -718,18 +799,6 @@ for epoch in range(epochs):
     )
 ```
 
-## Ploting the results
-
-```{python}
-plt.figure(figsize=(10, 5))
-plt.plot(all_train_loss, label="Train Loss")
-plt.plot(all_val_loss, label="Validation Loss")
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.title("Training and Validation Loss")
-plt.legend()
-plt.show()
-```
 
 ## Inference
 
@@ -764,3 +833,82 @@ for ax, (x, y) in zip(axes, inference_dataloder):
 plt.tight_layout()
 plt.show()
 ```
+
+## Performance evaluation and insights
+
+???
+
+
+## Baseline Model (Local Maxima Filtering)
+
+```{python}
+import scipy.spatial
+
+def local_maxima_filter(cloud: np.ndarray, window_size: float) -> np.ndarray:
+    """Detect local maxima in the point cloud with a fixed window size."""
+    
+    assert isinstance(cloud, np.ndarray), f"Cloud needs to be a numpy array, not {type(cloud)}"
+    
+    # cloud = cloud[cloud[:, 2] > height_threshold]
+    tree = scipy.spatial.KDTree(data=cloud)
+    seen_mask = np.zeros(cloud.shape[0], dtype=bool)
+    local_maxima = []
+
+    for i, point in enumerate(cloud):
+        if seen_mask[i]:
+            continue
+        neighbor_indices = tree.query_ball_point(point, window_size)
+        highest_neighbor = neighbor_indices[cloud[neighbor_indices, 2].argmax()]
+        seen_mask[neighbor_indices] = True
+        seen_mask[highest_neighbor] = False 
+        # This may lead to not every point being marked as seed in the end, but it does not matter,
+        # because by the time the seen value is overwritten the point is already processed
+        if i == highest_neighbor:
+            local_maxima.append(i)
+
+    return cloud[local_maxima]
+
+```
+
+```{python}
+
+def read_geojason_by_plot(file_path: str | os.PathLike, plot_num: int) -> pd.DataFrame:
+    with open(file_path) as f:
+        data = json.load(f)
+    data = pd.DataFrame([i["properties"] | i['geometry'] for i in data["features"]])
+    data['x'] = data['coordinates'].apply(lambda x: x[0])
+    data['y'] = data['coordinates'].apply(lambda x: x[1])
+    data = data.drop(columns=['coordinates'])
+
+    # filter data by plot number
+    data = data[data["plot"] == plot_num]
+    return data
+
+def test_local_maxima(window_sizes: list):
+    for plot_num in range(1, 11):
+        print(f"Plot {plot_num}")
+        gt_data = read_geojason_by_plot("data/field_survey.geojson", plot_num)
+        points = laspy.read(f"data/als/plot_{plot_num:02d}.las")
+        for window_size in window_sizes:
+            lm_points = local_maxima_filter(points.xyz, window_size)
+            point_distances = []
+            for lm_point in lm_points:
+                min_distance = np.inf
+                for gt_point in gt_data[['x', 'y']].values:
+                    distance = np.linalg.norm(lm_point[:2] - gt_point)
+                    if distance < min_distance:
+                        min_distance = distance
+                point_distances.append(min_distance)
+            point_distances = [float(distance) for distance in point_distances]
+            print(f"Window size: {window_size}")
+            # print("Sum distance:", np.sum(point_distances))
+            # print("Median distance:", np.median(point_distances))
+            print("local maxima filter (number of trees):", lm_points.shape[0])
+            print("ground truth (number of trees):", gt_data.shape[0])
+        # plt.figure(figsize=(10, 5))
+        # plt.hist(point_distances, bins=20, color='skyblue', edgecolor='black')
+        # plt.xlabel('Distance to nearest ground truth point')
+        # plt.ylabel('Frequency')
+        # plt.show()
+
+test_local_maxima([3])

@@ -1,0 +1,466 @@
+
+
+
+
+```{python}
+import sys
+# assert False, sys.executable
+import os
+import numpy as np
+import pandas as pd
+import laspy
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import rasterio
+from rasterio.plot import show
+import cv2
+import json
+import glob
+
+
+def lidar_to_point_cloud(lidar_file: str | os.PathLike) -> np.ndarray:
+    """Read a LiDAR file and return a NumPy array of points."""
+    las = laspy.read(lidar_file)
+    points = np.vstack((las.x, las.y, las.z)).transpose()
+    return points
+
+
+def visualize_lidar(lidar_file: str | os.PathLike):
+    """Visualize a LiDAR point cloud file (.las or .laz)."""
+    points = lidar_to_point_cloud(lidar_file)
+    print(points.shape)
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.scatter(
+        points[:, 0], points[:, 1], points[:, 2], c=points[:, 2], cmap="viridis", s=0.5
+    )
+    ax.set_title("LiDAR Point Cloud Visualization")
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    plt.show()
+
+
+visualize_lidar("data/als/plot_01.las")
+```
+
+
+```{python}
+points_01 = lidar_to_point_cloud("data/als/plot_01.las")
+IQRz = np.percentile(points_01[:, 2], 75) - np.percentile(points_01[:, 2], 25)
+plt.hist(points_01[:, 2], bins=100, color="blue", alpha=0.7)
+plt.axvline(np.percentile(points_01[:, 2], 25) - 1.5 * IQRz, color="red", linestyle="--")
+plt.axvline(np.percentile(points_01[:, 2], 75) + 1.5 * IQRz, color="red", linestyle="--")
+plt.title("Histogram of Z Values (Plot 01)")
+plt.xlabel("Z Value")
+plt.ylabel("Frequency")
+plt.show()
+```
+
+
+Converting a point cloud (shape `(218000, 3)`, representing 3D points (x, y, z)) into a 2D depth image involves projecting the 3D points onto a 2D plane and encoding the depth information (usually the z-coordinate or distance from the camera).
+
+Here’s how you can do it:
+
+### Steps:
+
+1. **Define the camera projection:**
+   - Choose a camera's intrinsic parameters (focal length, principal point, etc.).
+   - Set the resolution of the depth image (e.g., 640 \times 480).
+
+2. **Project points to the 2D plane:**
+   - Convert (x, y, z) into image coordinates (u, v) using:
+     $$
+     u = f_x \cdot \frac{x}{z} + c_x, \quad v = f_y \cdot \frac{y}{z} + c_y
+     $$
+     where f_x, f_y are the focal lengths (in pixels), and c_x, c_y are the principal points (image center).
+
+3. **Create a depth map:**
+   - Map each 3D point to its corresponding (u, v) pixel in the 2D image.
+   - Store the z-value (or -z for convention) in the depth map at (u, v).
+   - Handle occlusions by keeping the smallest z-value for each (u, v) to ensure only the closest point is recorded.
+
+4. **Normalize depth values:**
+   - Scale the depth values to a range suitable for visualization (e.g., 0–255 for 8-bit images).
+
+---
+
+But we don't have the camera's intrinsic parameters. Since we are going to map from the top, we will use this method:
+
+First, grouping by x and y, and then getting the maximum z value for each group. This will give us the depth map.
+
+For better results, we can remove the height values that are outliers. We can use the IQR method to remove the outliers. 
+
+This is the histogram of depth values for Plot 01. The red dashed line represents the 1st quartile. Since we are removing points with z-values less than the 1st quartile, only the 1st quartile line is shown (and not the 3rd quartile).
+
+```{python}
+points = pd.DataFrame(lidar_to_point_cloud("data/als/plot_01.las"), columns=["x", "y", "z"])
+points["x"] = points["x"].astype(int)
+points["y"] = points["y"].astype(int)
+depth_map = points.groupby(["x", "y"])["z"].max().reset_index()
+Q1 = np.percentile(depth_map["z"], 25)
+Q3 = np.percentile(depth_map["z"], 75)
+IQR = Q3 - Q1
+plt.hist(depth_map["z"], bins=100, color="b", alpha=0.7)
+plt.axvline(Q1 - 1.5 * IQR, color="r", linestyle="--")
+# plt.axvline(Q3 + 1.5 * IQR, color="r", linestyle="--")
+plt.title("Histogram of Depth Map")
+plt.xlabel("Depth Value")
+plt.ylabel("Frequency")
+plt.show()
+```
+
+In order to create a graysclae image, we need to normalize the depth values (z-values) to the range [0, 255]. 
+
+Here, you can see the representation of the depth image for the plot 01.
+
+```{python}
+# Remove outliers
+depth_map = depth_map[
+    (depth_map["z"] >= Q1 - 1.5 * IQR) & (depth_map["z"] <= Q3 + 1.5 * IQR)
+]
+
+# convert the point cloud to a depth map
+depth_map["x"] = (depth_map["x"] - depth_map["x"].min()).astype(int)
+depth_map["y"] = (depth_map["y"] - depth_map["y"].min()).astype(int)
+img = np.zeros((depth_map["x"].max() + 1, depth_map["y"].max() + 1)) + depth_map["z"].min()
+# print(img.size, img.shape)
+# print(depth_map.shape)
+img[depth_map["x"], depth_map["y"]] = depth_map["z"]
+img = (img / img.max() * 255).astype(np.uint8)
+
+# histogram equalization
+img = cv2.equalizeHist(img)
+
+print(img, img.dtype)
+# plt.hist(img.flatten(), bins=255, range=(0, 255), color="b", alpha=0.7)
+
+
+plt.figure(figsize=(10, 10))
+plt.imshow(img, cmap="gray")
+plt.axis("off")
+plt.title("Depth Map")
+plt.show()
+```
+
+
+Now lets put everything in a function and use step as a parameter to group the points.
+
+
+
+```{python}
+def tree_scope_definition(
+    depth_img_df: pd.DataFrame,
+    plot_num: int,
+    geojson_address: str | os.PathLike = "data/field_survey.geojson",
+) -> pd.DataFrame:
+    # read geojson file into dataframe
+    with open(geojson_address) as f:
+        data = json.load(f)
+    data = pd.DataFrame([i["properties"] | i["geometry"] for i in data["features"]])
+    data["x"] = data["coordinates"].apply(lambda x: x[0])
+    data["y"] = data["coordinates"].apply(lambda x: x[1])
+    data = data.drop(columns=["coordinates"])
+
+    # filter data by plot number
+    data = data[data["plot"] == plot_num]
+
+    # adding label column to depth_img_df
+    depth_img_df = depth_img_df.drop_duplicates().copy()
+    depth_img_df["label"] = 0
+
+    # label data points from depth_img_df that are in the circle, with the center of x, y and radius of dbh from data
+    not_founed_trees = 0
+    not_founed_trees_r = []
+
+    for index, row in data.iterrows():
+        x, y, r = row["x"], row["y"], row["dbh"]
+        r /= 200  # converting dbh to meters and dividing by 2 to get the radius
+        # tmp = depth_img_df[
+        #     (depth_img_df["x"] >= x - r)  # TODO
+        #     & (depth_img_df["x"] <= x + r)
+        #     & (depth_img_df["y"] >= y - r)
+        #     & (depth_img_df["y"] <= y + r)
+        # ]
+        distances = np.sqrt(
+            (depth_img_df["x"] - x) ** 2 + (depth_img_df["y"] - y) ** 2
+        ).sort_values()
+        # tmp = distances.iloc[:40]
+        tmp = distances[distances <= r]
+        if tmp.empty:
+            # print(f"No points in the circle with center {x, y} and radius {r}")
+            not_founed_trees += 1
+            not_founed_trees_r.append(r)
+        # adding label to the points in the circle
+        depth_img_df.loc[tmp.index, "label"] = index
+        # assert (
+        #     depth_img_df.groupby(["x", "y"])["label"].count().max() == 1
+        # ), f"There are multiple points in the same x, y, {tmp}, {index}"
+        # print("dede")
+    print(f"{not_founed_trees} trees were not found in the depth image")
+    print(np.mean(not_founed_trees_r))
+    return depth_img_df
+
+
+plot_num = 1
+raw_depth_map = pd.DataFrame(
+    lidar_to_point_cloud(f"data/als/plot_{plot_num:02d}.las"), columns=["x", "y", "z"]
+)
+gt_depth_map = tree_scope_definition(raw_depth_map, 1)
+print(gt_depth_map["label"].value_counts().sort_index())
+# plt.hist(gt_depth_map["label"], bins=5, color="b", alpha=0.7)
+gt_depth_map
+```
+
+```{python}
+def take_photo_from_top(points, step=0.1, remove_outliers=True):
+    """Take a photo from the top of the 3D points."""
+    points = points.copy()
+    assert "x" in points.columns and "y" in points.columns and "z" in points.columns
+    assert step > 0
+    assert (
+        a := points.groupby(["x", "y"])["label"].nunique()
+    ).max() == 1, f"There are multiple points in the same x, y, but {a[a > 1]} has multiple points "
+    points[["x", "y"]] = points[["x", "y"]] // step * step
+    depth_map = points.groupby(["x", "y"])[["z", "label"]].max().reset_index()
+    if remove_outliers:
+        Q1 = np.percentile(depth_map["z"], 25)
+        Q3 = np.percentile(depth_map["z"], 75)
+        IQR = Q3 - Q1
+        depth_map = depth_map[
+            (depth_map["z"] >= Q1 - 1.5 * IQR) & (depth_map["z"] <= Q3 + 1.5 * IQR)
+        ]
+    # add back the label column using join
+    # depth_map["label"] = 0
+    # depth_map = points[["x", "y", "z"]].merge(depth_map, on=["x", "y"], how="left")
+    return depth_map
+
+
+plot_num = 1
+raw_depth_map = pd.DataFrame(
+    lidar_to_point_cloud(f"data/als/plot_{plot_num:02d}.las"), columns=["x", "y", "z"]
+)
+gt_depth_map = tree_scope_definition(raw_depth_map, 1)
+depth_map = take_photo_from_top(gt_depth_map, step=0.1)
+
+
+plt.hist(depth_map["z"], bins=100, color="b", alpha=0.7)
+plt.title("Histogram of Depth Map")
+plt.xlabel("Depth Value")
+plt.ylabel("Frequency")
+plt.show()
+```
+
+
+```{python}
+
+
+def create_depth_img(depth_map: pd.DataFrame) -> np.ndarray:
+    """Create a depth map from 3D points."""
+
+    for col in ["x", "y", "z"]:
+        depth_map[col] -= depth_map[col].min()
+        # we can not ues depth_map -= depth_map.min() because we need to preserve the columns dtypes
+        # and also, we dnot want to do it for all columns
+    # the xmapper and y_mapper are used to map the x and y values to the image
+    x_mapper = {v: i for i, v in enumerate(sorted(depth_map["x"].unique()))}
+    y_mapper = {v: i for i, v in enumerate(sorted(depth_map["y"].unique()))}
+    depth_map["x_index"] = depth_map["x"].map(x_mapper)
+    depth_map["y_index"] = depth_map["y"].map(y_mapper)
+    img = np.zeros((len(x_mapper), len(y_mapper)))
+    img[depth_map["x_index"], depth_map["y_index"]] = depth_map["z"]
+    img = (img / img.max() * 255).astype(np.uint8)
+    img = cv2.equalizeHist(img)
+
+    mask = np.zeros((len(x_mapper), len(y_mapper)))
+    tree_depth_map = depth_map[depth_map["label"] != 0]
+    mask[tree_depth_map["x_index"], tree_depth_map["y_index"]] = 1
+    # print(img.shape)
+
+    missing_pixels = np.ones_like(img)
+    missing_pixels[depth_map["x_index"], depth_map["y_index"]] = 0
+
+    return img, mask, missing_pixels
+
+
+raw_depth_map = pd.DataFrame(
+    lidar_to_point_cloud("data/als/plot_01.las"), columns=["x", "y", "z"]
+)
+gt_depth_map = tree_scope_definition(raw_depth_map, 1)
+depth_map = take_photo_from_top(gt_depth_map)
+print(depth_map.columns)
+depth_img, mask, missing_pixels = create_depth_img(depth_map)
+
+depth_img_3d = cv2.cvtColor(depth_img, cv2.COLOR_GRAY2RGB)
+depth_img_3d[mask == 1] = [255, 0, 0]
+# depth_img_3d[missing_pixels == 1] = [0, 0, 255]
+
+plt.figure(figsize=(10, 10))
+plt.imshow(depth_img_3d)
+plt.axis("off")
+plt.title("Depth Map")
+plt.show()
+```
+
+```{python}
+plt.figure(figsize=(10, 10))
+plt.imshow(mask, cmap="gray")
+plt.axis("off")
+plt.title("Mask")
+plt.show()
+```
+
+### Create The data set
+
+Now we will apply use the above functions to create the 2D images and the mask for all of the data area.
+
+
+```{python}
+
+def calculate_rotation_angle(points):
+    """
+    Calculate the angle of rotation for a quadrilateral based on its four corner points.
+
+    Parameters:
+    points (list or np.ndarray): A list or array of four points, each represented as [x, y].
+                                 The points should be in any order.
+
+    Returns:
+    float: The rotation angle (in degrees) of the top edge with respect to the horizontal axis.
+    """
+    # Ensure points are a NumPy array
+    points = np.array(points)
+
+    # Sort points by their y-coordinates (to distinguish top and bottom)
+    points = points[np.argsort(points[:, 1])]
+
+    # Extract top and bottom points
+    top_points = points[:2]  # First two are the top points
+    bottom_points = points[2:]  # Last two are the bottom points
+
+    # Further sort top and bottom points by their x-coordinates
+    top_left, top_right = top_points[np.argsort(top_points[:, 0])]
+    bottom_left, bottom_right = bottom_points[np.argsort(bottom_points[:, 0])]
+
+    # Calculate the angle of the top edge
+    dx = top_right[0] - top_left[0]
+    dy = top_right[1] - top_left[1]
+    angle = np.degrees(np.arctan2(dy, dx))
+
+    return angle
+
+def turn_points(points, angle):
+    """
+    Rotate a set of points by a given angle around the origin.
+
+    Parameters:
+    points (np.ndarray): An array of points, each represented as [x, y].
+    angle (float): The angle of rotation (in degrees).
+
+    Returns:
+    np.ndarray: An array of rotated points.
+    """
+    # Convert the angle to radians
+    angle = np.radians(angle)
+
+    # Define the rotation matrix
+    rotation_matrix = np.array(
+        [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+    )
+
+    # Rotate the points
+    rotated_points = points @ rotation_matrix
+
+    return rotated_points
+
+
+```
+```{python}
+def create_dataset(
+    data_folder: str | os.PathLike, step: float = 0.1, remove_outliers: bool = True
+) -> tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
+    """Create a dataset from the LiDAR data."""
+    depth_imgs, masks, missing_pixels, angles = [], [], [], []
+    for las_file in glob.glob(os.path.join(data_folder, "*.las")):
+        plot_num = int(os.path.splitext(os.path.basename(las_file))[0].split("_")[-1])
+        raw_depth_map = pd.DataFrame(
+            lidar_to_point_cloud(las_file), columns=["x", "y", "z"]
+        )
+        gt_depth_map = tree_scope_definition(raw_depth_map, plot_num)
+
+        most_left_point = gt_depth_map.loc[gt_depth_map["x"].idxmin()]
+        most_right_point = gt_depth_map.loc[gt_depth_map["x"].idxmax()]
+
+        most_bottom_point = gt_depth_map.loc[gt_depth_map["y"].idxmin()]
+        most_top_point = gt_depth_map.loc[gt_depth_map["y"].idxmax()]
+
+        angle = calculate_rotation_angle(
+            [
+                [most_left_point["x"], most_left_point["y"]],
+                [most_right_point["x"], most_right_point["y"]],
+                [most_bottom_point["x"], most_bottom_point["y"]],
+                [most_top_point["x"], most_top_point["y"]],
+            ]
+        )
+
+        gt_depth_map[["x", "y"]] = turn_points(gt_depth_map[["x", "y"]], angle)
+
+        depth_map = take_photo_from_top(
+            gt_depth_map, step=step, remove_outliers=remove_outliers
+        )
+        depth_img, mask, missing_pixel = create_depth_img(depth_map)
+        depth_imgs.append(depth_img)
+        masks.append(mask)
+        missing_pixels.append(missing_pixel)
+        angles.append(angle)
+    return depth_imgs, masks, missing_pixels, angles
+
+
+all_depth_imgs, all_masks, all_missing_pixels, angles = create_dataset("data/als")
+
+```
+
+```{python}
+fig, axes = plt.subplots(5, 2, figsize=(10, 25))
+axes = axes.flatten()
+if len(all_depth_imgs) > len(axes):
+    indices = np.random.choice(range(len(all_depth_imgs)), len(axes), replace=False)
+else:
+    indices = range(len(all_depth_imgs))
+
+for i, ax in zip(indices, axes):
+    depth_img, mask, missing_pixel = (
+        all_depth_imgs[i],
+        all_masks[i],
+        all_missing_pixels[i],
+    )
+    depth_img_3d = cv2.cvtColor(depth_img, cv2.COLOR_GRAY2RGB)
+    depth_img_3d[mask == 1] = [255, 0, 0]
+    # depth_img_3d[missing_pixel == 1] = [0, 0, 255]
+
+    ax.imshow(depth_img_3d)
+    ax.axis("off")
+    ax.set_title(f"Plot {i + 1}, Angle: {angles[i]:.2f}°")
+plt.tight_layout()
+plt.show()
+```
+
+
+## Apply Unet to learn all of them
+
+```{python}
+import torch
+import segmentation_models_pytorch as smp
+
+# Load a pretrained U-Net model with ResNet34 backbone
+model = smp.Unet(
+    encoder_name="resnet34",  # choose encoder, e.g. mobilenet_v2, efficientnet-b7
+    encoder_weights="imagenet",  # use pretrained weights
+    in_channels=3,  # input channels (e.g. 3 for RGB)
+    classes=1,
+)  # output channels (e.g. 1 for binary segmentation)
+
+# Check the model summary
+print(model)
+```
+
