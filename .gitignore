@@ -8,6 +8,7 @@ __pycache__/
 .ipynb_checkpoints/
 *.quarto_ipynb
 Project2/image.png
+
 FinalProject/data/
 FinalProject/*.pth
 FinalProject/*npy

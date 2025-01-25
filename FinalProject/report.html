@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.6.39">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Kasra Eskandarizanjani and Zahra hashemi">
+
+<title>LiDAR Data Processing and Tree Detection</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script><script src="report_files/libs/clipboard/clipboard.min.js"></script>
+<script src="report_files/libs/quarto-html/quarto.js"></script>
+<script src="report_files/libs/quarto-html/popper.min.js"></script>
+<script src="report_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="report_files/libs/quarto-html/anchor.min.js"></script>
+<link href="report_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="report_files/libs/quarto-html/quarto-syntax-highlighting-e26003cea8cd680ca0c55a263523d882.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="report_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="report_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="report_files/libs/bootstrap/bootstrap-cf3e828eacb9a70a1418d1928bb22f57.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-full">
+
+<main class="content column-page" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">LiDAR Data Processing and Tree Detection</h1>
+</div>
+
+
+
+<div class="quarto-title-meta column-page">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Kasra Eskandarizanjani and Zahra hashemi </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<style>
+    main .content {
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+}
+</style>
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<p>In this project, we are going to work with preprocessed LiDAR point cloud data of 10 ground plots (all same size) of a forest in Russia. The goal is to identify the trees in the plots. Our group has chosen task no. 4, which first, we are going to create depth images out of point cloud datasets for each plot, segmenting the trees based on the ground truth we have for individual trees, then, we are going to apply Unet or ResNet to identify those individual trees in the depth images.</p>
+<p>In the cell below, you can see a visualisation of plot 1.</p>
+<div id="3d00c7f2" class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> laspy</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> mpl_toolkits.mplot3d <span class="im">import</span> Axes3D</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> rasterio</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> rasterio.plot <span class="im">import</span> show</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> cv2</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> glob</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> utils <span class="im">import</span> lidar_to_point_cloud, tree_scope_definition</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> visualize_lidar(lidar_file: <span class="bu">str</span> <span class="op">|</span> os.PathLike):</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Visualize a LiDAR point cloud file (.las or .laz)."""</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    points <span class="op">=</span> lidar_to_point_cloud(lidar_file)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(points.shape)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    fig <span class="op">=</span> plt.figure(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    ax <span class="op">=</span> fig.add_subplot(<span class="dv">111</span>, projection<span class="op">=</span><span class="st">"3d"</span>)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    ax.scatter(</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        points[:, <span class="dv">0</span>], points[:, <span class="dv">1</span>], points[:, <span class="dv">2</span>], c<span class="op">=</span>points[:, <span class="dv">2</span>], cmap<span class="op">=</span><span class="st">"viridis"</span>, s<span class="op">=</span><span class="fl">0.5</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    ax.set_title(<span class="st">"LiDAR Point Cloud Visualization"</span>)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    ax.set_xlabel(<span class="st">"X"</span>)</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    ax.set_ylabel(<span class="st">"Y"</span>)</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    ax.set_zlabel(<span class="st">"Z"</span>)</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    plt.show()</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>visualize_lidar(<span class="st">"data/als/plot_01.las"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>(218873, 3)</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-2-output-2.png" width="761" height="778" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="data-preprocessing" class="level1">
+<h1>Data Preprocessing</h1>
+<p>here, a histogram of the Z values of the point cloud is plotted. The red dashed lines represent the first and third quartiles plus/minus 1.5 times the IQR.</p>
+<div id="e85c009a" class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>points_01 <span class="op">=</span> lidar_to_point_cloud(<span class="st">"data/als/plot_01.las"</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>IQRz <span class="op">=</span> np.percentile(points_01[:, <span class="dv">2</span>], <span class="dv">75</span>) <span class="op">-</span> np.percentile(points_01[:, <span class="dv">2</span>], <span class="dv">25</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>plt.hist(points_01[:, <span class="dv">2</span>], bins<span class="op">=</span><span class="dv">100</span>, color<span class="op">=</span><span class="st">"blue"</span>, alpha<span class="op">=</span><span class="fl">0.7</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>plt.axvline(np.percentile(points_01[:, <span class="dv">2</span>], <span class="dv">25</span>) <span class="op">-</span> <span class="fl">1.5</span> <span class="op">*</span> IQRz, color<span class="op">=</span><span class="st">"red"</span>, linestyle<span class="op">=</span><span class="st">"--"</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>plt.axvline(np.percentile(points_01[:, <span class="dv">2</span>], <span class="dv">75</span>) <span class="op">+</span> <span class="fl">1.5</span> <span class="op">*</span> IQRz, color<span class="op">=</span><span class="st">"red"</span>, linestyle<span class="op">=</span><span class="st">"--"</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Histogram of Z Values (Plot 01)"</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Z Value"</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Frequency"</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-3-output-1.png" width="601" height="449" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<section id="general-method-to-create-depth-images" class="level2">
+<h2 class="anchored" data-anchor-id="general-method-to-create-depth-images">General Method to Create Depth Images</h2>
+<p>Converting a point cloud (shape <code>(218000, 3)</code>, representing 3D points (x, y, z)) into a 2D depth image involves projecting the 3D points onto a 2D plane and encoding the depth information (usually the z-coordinate or distance from the camera).</p>
+<p>Here’s how you can do it:</p>
+<ol type="1">
+<li><strong>Define the camera projection:</strong>
+<ul>
+<li>Choose a camera’s intrinsic parameters (focal length, principal point, etc.).</li>
+<li>Set the resolution of the depth image (e.g., 640 ).</li>
+</ul></li>
+<li><strong>Project points to the 2D plane:</strong>
+<ul>
+<li>Convert (x, y, z) into image coordinates (u, v) using: <span class="math display">\[
+u = f_x \cdot \frac{x}{z} + c_x, \quad v = f_y \cdot \frac{y}{z} + c_y
+\]</span> where f_x, f_y are the focal lengths (in pixels), and c_x, c_y are the principal points (image center).</li>
+</ul></li>
+<li><strong>Create a depth map:</strong>
+<ul>
+<li>Map each 3D point to its corresponding (u, v) pixel in the 2D image.</li>
+<li>Store the z-value (or -z for convention) in the depth map at (u, v).</li>
+<li>Handle occlusions by keeping the smallest z-value for each (u, v) to ensure only the closest point is recorded.</li>
+</ul></li>
+<li><strong>Normalize depth values:</strong>
+<ul>
+<li>Scale the depth values to a range suitable for visualization (e.g., 0–255 for 8-bit images).</li>
+</ul></li>
+</ol>
+<hr>
+</section>
+<section id="depth-image-creation" class="level2">
+<h2 class="anchored" data-anchor-id="depth-image-creation">Depth Image Creation</h2>
+<p>But we don’t have the camera intrinsic parameters. Since we are going to map from the top, we will use this method:</p>
+<p>Group by x and y, and get the maximum z value. This will give us the depth map. Then we will normalize the z-values to 0-255, to get the grayscale image.</p>
+<p>For better results, we remove the height values that are outliers. We use the IQR method to remove the outliers.</p>
+<div id="8be42315" class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>points <span class="op">=</span> pd.DataFrame(lidar_to_point_cloud(<span class="st">"data/als/plot_01.las"</span>), columns<span class="op">=</span>[<span class="st">"x"</span>, <span class="st">"y"</span>, <span class="st">"z"</span>])</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>points[<span class="st">"x"</span>] <span class="op">=</span> points[<span class="st">"x"</span>].astype(<span class="bu">int</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>points[<span class="st">"y"</span>] <span class="op">=</span> points[<span class="st">"y"</span>].astype(<span class="bu">int</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>depth_map <span class="op">=</span> points.groupby([<span class="st">"x"</span>, <span class="st">"y"</span>])[<span class="st">"z"</span>].<span class="bu">max</span>().reset_index()</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>Q1 <span class="op">=</span> np.percentile(depth_map[<span class="st">"z"</span>], <span class="dv">25</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>Q3 <span class="op">=</span> np.percentile(depth_map[<span class="st">"z"</span>], <span class="dv">75</span>)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>IQR <span class="op">=</span> Q3 <span class="op">-</span> Q1</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>plt.hist(depth_map[<span class="st">"z"</span>], bins<span class="op">=</span><span class="dv">100</span>, color<span class="op">=</span><span class="st">"b"</span>, alpha<span class="op">=</span><span class="fl">0.7</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>plt.axvline(Q1 <span class="op">-</span> <span class="fl">1.5</span> <span class="op">*</span> IQR, color<span class="op">=</span><span class="st">"r"</span>, linestyle<span class="op">=</span><span class="st">"--"</span>)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>plt.axvline(Q3 <span class="op">+</span> <span class="fl">1.5</span> <span class="op">*</span> IQR, color<span class="op">=</span><span class="st">"r"</span>, linestyle<span class="op">=</span><span class="st">"--"</span>)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Histogram of Depth Map"</span>)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Depth Value"</span>)</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Frequency"</span>)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-4-output-1.png" width="593" height="449" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>here is a representation of the depth map of plot 1.</p>
+<div id="83d65d64" class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove outliers</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>depth_map <span class="op">=</span> depth_map[</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    (depth_map[<span class="st">"z"</span>] <span class="op">&gt;=</span> Q1 <span class="op">-</span> <span class="fl">1.5</span> <span class="op">*</span> IQR) <span class="op">&amp;</span> (depth_map[<span class="st">"z"</span>] <span class="op">&lt;=</span> Q3 <span class="op">+</span> <span class="fl">1.5</span> <span class="op">*</span> IQR)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co"># convert the point cloud to a depth map</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>depth_map[<span class="st">"x"</span>] <span class="op">=</span> (depth_map[<span class="st">"x"</span>] <span class="op">-</span> depth_map[<span class="st">"x"</span>].<span class="bu">min</span>()).astype(<span class="bu">int</span>)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>depth_map[<span class="st">"y"</span>] <span class="op">=</span> (depth_map[<span class="st">"y"</span>] <span class="op">-</span> depth_map[<span class="st">"y"</span>].<span class="bu">min</span>()).astype(<span class="bu">int</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>img <span class="op">=</span> np.zeros((depth_map[<span class="st">"x"</span>].<span class="bu">max</span>() <span class="op">+</span> <span class="dv">1</span>, depth_map[<span class="st">"y"</span>].<span class="bu">max</span>() <span class="op">+</span> <span class="dv">1</span>)) <span class="op">+</span> depth_map[<span class="st">"z"</span>].<span class="bu">min</span>()</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(img.size, img.shape)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(depth_map.shape)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>img[depth_map[<span class="st">"x"</span>], depth_map[<span class="st">"y"</span>]] <span class="op">=</span> depth_map[<span class="st">"z"</span>]</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>img <span class="op">=</span> (img <span class="op">/</span> img.<span class="bu">max</span>() <span class="op">*</span> <span class="dv">255</span>).astype(np.uint8)</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="co"># histogram equalization</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>img <span class="op">=</span> cv2.equalizeHist(img)</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(img, img.dtype)</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="co"># plt.hist(img.flatten(), bins=255, range=(0, 255), color="b", alpha=0.7)</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>plt.imshow(img, cmap<span class="op">=</span><span class="st">"gray"</span>)</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>plt.axis(<span class="st">"off"</span>)</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Depth Map"</span>)</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>6944 (62, 112)
+(6327, 3)
+[[ 41  11 106 ...   0   0   0]
+ [  0   0  19 ...   0  11   0]
+ [  0   0  60 ...   0  11  11]
+ ...
+ [161 161  60 ... 161 161 134]
+ [ 79 106  79 ... 161 161 161]
+ [ 60  60  60 ... 134 161   0]] uint8</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-5-output-2.png" width="763" height="451" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Now lets put everything in a function and use step as a parameter to group the points.</p>
+<p>The above cells represent the steps we plan to take. The taken steps are outlined in the following implemented functions.</p>
+<p>In the <code>tree_scope_definition</code> function, based on the location of individual trees in the ground truth geojson file, we label the points in the depth image that are within the circle of the tree’s location and diameter. The function returns the depth image with the labeled points.</p>
+<div id="811755b5" class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> utils <span class="im">import</span> lidar_to_point_cloud, tree_scope_definition</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>plot_num <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>raw_depth_map <span class="op">=</span> pd.DataFrame(</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    lidar_to_point_cloud(<span class="ss">f"data/als/plot_</span><span class="sc">{</span>plot_num<span class="sc">:02d}</span><span class="ss">.las"</span>), columns<span class="op">=</span>[<span class="st">"x"</span>, <span class="st">"y"</span>, <span class="st">"z"</span>]</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>gt_depth_map <span class="op">=</span> tree_scope_definition(raw_depth_map, <span class="dv">1</span>)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(gt_depth_map[<span class="st">"label"</span>].value_counts().sort_index())</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co"># plt.hist(gt_depth_map["label"], bins=5, color="b", alpha=0.7)</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>gt_depth_map</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>label
+0      210642
+1          16
+3          11
+4           3
+5          27
+        ...  
+413         6
+415         6
+416        28
+417         3
+418         3
+Name: count, Length: 374, dtype: int64</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="106">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">x</th>
+<th data-quarto-table-cell-role="th">y</th>
+<th data-quarto-table-cell-role="th">z</th>
+<th data-quarto-table-cell-role="th">label</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">0</td>
+<td>547126.022</td>
+<td>6.450332e+06</td>
+<td>192.615</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">1</td>
+<td>547124.386</td>
+<td>6.450323e+06</td>
+<td>210.831</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2</td>
+<td>547123.899</td>
+<td>6.450323e+06</td>
+<td>210.599</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">3</td>
+<td>547125.966</td>
+<td>6.450331e+06</td>
+<td>208.661</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">4</td>
+<td>547125.052</td>
+<td>6.450330e+06</td>
+<td>207.589</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">218868</td>
+<td>547124.724</td>
+<td>6.450349e+06</td>
+<td>211.284</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">218869</td>
+<td>547125.914</td>
+<td>6.450351e+06</td>
+<td>211.993</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">218870</td>
+<td>547122.769</td>
+<td>6.450335e+06</td>
+<td>210.821</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">218871</td>
+<td>547124.764</td>
+<td>6.450338e+06</td>
+<td>213.778</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">218872</td>
+<td>547125.440</td>
+<td>6.450339e+06</td>
+<td>214.239</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+
+<p>213899 rows × 4 columns</p>
+</div>
+</div>
+</div>
+<p>We previously converted the x and y coordinates of the point cloud to integer values for simplicity. However, in this step, we use the original float values and define a step size to group points by their x and y coordinates. In this way, we increase the resolution and precision of the depth image.</p>
+<div id="f19dfebe" class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> utils <span class="im">import</span> take_photo_from_top</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>plot_num <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>raw_depth_map <span class="op">=</span> pd.DataFrame(</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    lidar_to_point_cloud(<span class="ss">f"data/als/plot_</span><span class="sc">{</span>plot_num<span class="sc">:02d}</span><span class="ss">.las"</span>), columns<span class="op">=</span>[<span class="st">"x"</span>, <span class="st">"y"</span>, <span class="st">"z"</span>]</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>gt_depth_map <span class="op">=</span> tree_scope_definition(raw_depth_map, <span class="dv">1</span>)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>depth_map <span class="op">=</span> take_photo_from_top(gt_depth_map, step<span class="op">=</span><span class="fl">0.1</span>)</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>plt.hist(depth_map[<span class="st">"z"</span>], bins<span class="op">=</span><span class="dv">100</span>, color<span class="op">=</span><span class="st">"b"</span>, alpha<span class="op">=</span><span class="fl">0.7</span>)</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Histogram of Depth Map"</span>)</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Depth Value"</span>)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Frequency"</span>)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-7-output-1.png" width="602" height="449" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<div id="9ad2d5ea" class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> utils <span class="im">import</span> create_depth_img</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>raw_depth_map <span class="op">=</span> pd.DataFrame(</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    lidar_to_point_cloud(<span class="st">"data/als/plot_01.las"</span>), columns<span class="op">=</span>[<span class="st">"x"</span>, <span class="st">"y"</span>, <span class="st">"z"</span>]</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>gt_depth_map <span class="op">=</span> tree_scope_definition(raw_depth_map, <span class="dv">1</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>depth_map <span class="op">=</span> take_photo_from_top(gt_depth_map)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co"># print(depth_map.columns)</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>depth_img, mask, missing_pixels <span class="op">=</span> create_depth_img(depth_map)</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>depth_img_3d <span class="op">=</span> cv2.cvtColor(depth_img, cv2.COLOR_GRAY2RGB)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>depth_img_3d[mask <span class="op">==</span> <span class="dv">1</span>] <span class="op">=</span> [<span class="dv">255</span>, <span class="dv">0</span>, <span class="dv">0</span>]</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="co"># depth_img_3d[missing_pixels == 1] = [0, 0, 255]</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>plt.imshow(depth_img_3d)</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>plt.axis(<span class="st">"off"</span>)</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Depth Map"</span>)</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-8-output-1.png" width="763" height="450" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The mask image is showing the identified tree points in the depth image.</p>
+<div id="9b9fda43" class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>plt.imshow(mask, cmap<span class="op">=</span><span class="st">"gray"</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>plt.axis(<span class="st">"off"</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Mask"</span>)</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-9-output-1.png" width="763" height="450" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="plot-rotation-data-preprocessing" class="level2">
+<h2 class="anchored" data-anchor-id="plot-rotation-data-preprocessing">Plot Rotation (Data Preprocessing)</h2>
+<p>When we examine the original plots, we notice that the rectangles have been rotated. To align the images correctly, we will take the following steps:</p>
+<section id="calculating-the-rotation-angle" class="level3">
+<h3 class="anchored" data-anchor-id="calculating-the-rotation-angle">Calculating the Rotation Angle</h3>
+<ol type="1">
+<li><strong>Sort Points</strong>:
+<ul>
+<li>First, we need to sort the points by their y-coordinates to distinguish the top two points and the bottom two points.</li>
+<li>Then, we did sort the top two points by their x-coordinates.</li>
+</ul></li>
+<li><strong>Calculate the Angle</strong>:
+<ul>
+<li>Using the <code>arctan2</code> function, the angle between the top points has been calculated:</li>
+</ul>
+<span class="math display">\[
+\text{atan2}(y, x) =
+\begin{cases}
+\arctan\left(\frac{y}{x}\right) &amp; \text{if } x &gt; 0, \\[10pt]
+\arctan\left(\frac{y}{x}\right) + \pi &amp; \text{if } x &lt; 0 \text{ and } y \geq 0, \\[10pt]
+\arctan\left(\frac{y}{x}\right) - \pi &amp; \text{if } x &lt; 0 \text{ and } y &lt; 0, \\[10pt]
++\frac{\pi}{2} &amp; \text{if } x = 0 \text{ and } y &gt; 0, \\[10pt]
+-\frac{\pi}{2} &amp; \text{if } x = 0 \text{ and } y &lt; 0, \\[10pt]
+\text{undefined} &amp; \text{if } x = 0 \text{ and } y = 0.
+\end{cases}
+\]</span></li>
+</ol>
+</section>
+<section id="rotating-the-points" class="level3">
+<h3 class="anchored" data-anchor-id="rotating-the-points">Rotating the Points</h3>
+<ol type="1">
+<li><p><strong>Define the Rotation Matrix</strong>:</p>
+<ul>
+<li>Using the calculated angle () to define the rotation matrix:</li>
+</ul>
+<p><span class="math display">\[
+R =
+\begin{bmatrix}
+\cos(\theta) &amp; -\sin(\theta) \\
+\sin(\theta) &amp; \cos(\theta)
+\end{bmatrix}
+\]</span></p></li>
+<li><p><strong>Rotate the Points</strong>:</p>
+<ul>
+<li>By applying the rotation matrix to the points, we will get the rotated points:</li>
+</ul>
+<div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>rotated_points <span class="op">=</span> points <span class="op">@</span> rotation_matrix</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></li>
+<li><p><strong>Adjust the Orientation</strong>:</p>
+<ul>
+<li>Based on the shape (landscape or portrait), we can adjust the rotation as well.</li>
+</ul></li>
+</ol>
+<div id="3b9123a3" class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> utils <span class="im">import</span> calculate_rotation_angle, turn_points</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="create-the-depth-images-for-all-the-data-grounds" class="level2">
+<h2 class="anchored" data-anchor-id="create-the-depth-images-for-all-the-data-grounds">Create The Depth Images for all the Data Grounds</h2>
+<div id="70c9eda7" class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> utils <span class="im">import</span> create_dataset</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>all_depth_imgs, all_masks, all_missing_pixels, angles <span class="op">=</span> create_dataset(</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"data/als"</span>, orientation<span class="op">=</span><span class="va">False</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Reading LiDAR files:   0%|          | 0/10 [00:00&lt;?, ?it/s]Reading LiDAR files:  10%|█         | 1/10 [00:04&lt;00:37,  4.18s/it]Reading LiDAR files:  20%|██        | 2/10 [00:10&lt;00:41,  5.21s/it]Reading LiDAR files:  30%|███       | 3/10 [00:15&lt;00:35,  5.10s/it]Reading LiDAR files:  40%|████      | 4/10 [00:18&lt;00:25,  4.30s/it]Reading LiDAR files:  50%|█████     | 5/10 [00:18&lt;00:15,  3.05s/it]Reading LiDAR files:  60%|██████    | 6/10 [00:24&lt;00:15,  3.88s/it]Reading LiDAR files:  70%|███████   | 7/10 [00:30&lt;00:13,  4.59s/it]Reading LiDAR files:  80%|████████  | 8/10 [00:34&lt;00:08,  4.49s/it]Reading LiDAR files:  90%|█████████ | 9/10 [00:41&lt;00:05,  5.10s/it]Reading LiDAR files: 100%|██████████| 10/10 [00:48&lt;00:00,  5.67s/it]Reading LiDAR files: 100%|██████████| 10/10 [00:48&lt;00:00,  4.82s/it]</code></pre>
+</div>
+</div>
+</section>
+<section id="visualize-the-depth-images---no-rotation" class="level2">
+<h2 class="anchored" data-anchor-id="visualize-the-depth-images---no-rotation">Visualize the Depth Images - No Rotation</h2>
+<div id="c376dcb1" class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">5</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">25</span>))</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>axes <span class="op">=</span> axes.flatten()</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="bu">len</span>(all_depth_imgs) <span class="op">&gt;</span> <span class="bu">len</span>(axes):</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    indices <span class="op">=</span> np.random.choice(<span class="bu">range</span>(<span class="bu">len</span>(all_depth_imgs)), <span class="bu">len</span>(axes), replace<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    indices <span class="op">=</span> <span class="bu">range</span>(<span class="bu">len</span>(all_depth_imgs))</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, ax <span class="kw">in</span> <span class="bu">zip</span>(indices, axes):</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    depth_img, mask, missing_pixel <span class="op">=</span> (</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>        all_depth_imgs[i],</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>        all_masks[i],</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>        all_missing_pixels[i],</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>    depth_img_3d <span class="op">=</span> cv2.cvtColor(depth_img, cv2.COLOR_GRAY2RGB)</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>    depth_img_3d[mask <span class="op">==</span> <span class="dv">1</span>] <span class="op">=</span> [<span class="dv">255</span>, <span class="dv">0</span>, <span class="dv">0</span>]</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># depth_img_3d[missing_pixel == 1] = [0, 0, 255]</span></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>    ax.imshow(depth_img_3d)</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>    ax.axis(<span class="st">"off"</span>)</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>    ax.set_title(<span class="ss">f"Plot </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">, Angle: </span><span class="sc">{</span>angles[i]<span class="sc">:.2f}</span><span class="ss">°"</span>)</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-12-output-1.png" width="950" height="2352" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="visualize-the-depth-images---with-rotation-landscape" class="level2">
+<h2 class="anchored" data-anchor-id="visualize-the-depth-images---with-rotation-landscape">Visualize the Depth Images - With Rotation (Landscape)</h2>
+<div id="c92cf6e4" class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>all_depth_imgs, all_masks, all_missing_pixels, angles <span class="op">=</span> create_dataset(</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"data/als"</span>, orientation<span class="op">=</span><span class="st">"landscape"</span>)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">5</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">25</span>))</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>axes <span class="op">=</span> axes.flatten()</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="bu">len</span>(all_depth_imgs) <span class="op">&gt;</span> <span class="bu">len</span>(axes):</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    indices <span class="op">=</span> np.random.choice(<span class="bu">range</span>(<span class="bu">len</span>(all_depth_imgs)), <span class="bu">len</span>(axes), replace<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    indices <span class="op">=</span> <span class="bu">range</span>(<span class="bu">len</span>(all_depth_imgs))</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, ax <span class="kw">in</span> <span class="bu">zip</span>(indices, axes):</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>    depth_img, mask, missing_pixel <span class="op">=</span> (</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>        all_depth_imgs[i],</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>        all_masks[i],</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>        all_missing_pixels[i],</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>    depth_img_3d <span class="op">=</span> cv2.cvtColor(depth_img, cv2.COLOR_GRAY2RGB)</span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>    depth_img_3d[mask <span class="op">==</span> <span class="dv">1</span>] <span class="op">=</span> [<span class="dv">255</span>, <span class="dv">0</span>, <span class="dv">0</span>]</span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># depth_img_3d[missing_pixel == 1] = [0, 0, 255]or ax, (img, mask) in zip(axes, val_loader):</span></span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>    ax.imshow(depth_img_3d)</span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>    ax.axis(<span class="st">"off"</span>)</span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>    ax.set_title(<span class="ss">f"Plot </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">, Angle: </span><span class="sc">{</span>angles[i]<span class="sc">:.2f}</span><span class="ss">°"</span>)</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Reading LiDAR files:   0%|          | 0/10 [00:00&lt;?, ?it/s]Reading LiDAR files:  10%|█         | 1/10 [00:04&lt;00:41,  4.65s/it]Reading LiDAR files:  20%|██        | 2/10 [00:11&lt;00:45,  5.72s/it]Reading LiDAR files:  30%|███       | 3/10 [00:15&lt;00:36,  5.19s/it]Reading LiDAR files:  40%|████      | 4/10 [00:19&lt;00:27,  4.59s/it]Reading LiDAR files:  50%|█████     | 5/10 [00:20&lt;00:16,  3.32s/it]Reading LiDAR files:  60%|██████    | 6/10 [00:25&lt;00:15,  3.80s/it]Reading LiDAR files:  70%|███████   | 7/10 [00:31&lt;00:13,  4.62s/it]Reading LiDAR files:  80%|████████  | 8/10 [00:35&lt;00:08,  4.42s/it]Reading LiDAR files:  90%|█████████ | 9/10 [00:42&lt;00:05,  5.15s/it]Reading LiDAR files: 100%|██████████| 10/10 [00:49&lt;00:00,  5.67s/it]Reading LiDAR files: 100%|██████████| 10/10 [00:49&lt;00:00,  4.90s/it]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-13-output-2.png" width="950" height="2123" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Let’s check the images sizes:</p>
+<div id="bacd9a9a" class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> img <span class="kw">in</span> all_depth_imgs:</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(img.shape)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>(645, 1124)
+(643, 1140)
+(643, 1141)
+(647, 1139)
+(646, 1137)
+(656, 1146)
+(653, 1151)
+(650, 1145)
+(639, 1139)
+(637, 1138)</code></pre>
+</div>
+</div>
+<p>These images are too big, let’s split each image into several patches and use them as the input of the model. To make sure to keep the trees in the patches, we will use overlapping patches.</p>
+<p>You can run <code>python utils.py</code> to create the patches and save them in the <code>data/patches</code> folder.</p>
+</section>
+</section>
+<section id="model-design-and-training-process" class="level1">
+<h1>Model design and training process</h1>
+<section id="dataset" class="level2">
+<h2 class="anchored" data-anchor-id="dataset">Dataset</h2>
+<p>The dataset class is availabe in the <code>model_training.py</code> file. The dataset class is called <code>ImagesDataset</code> and it is used to load the images and masks from the folder where the patches are saved.</p>
+<blockquote class="blockquote">
+<p>To Have better result in the model, the dataset recieves a parameter named <code>extend_radius</code> which is used to extend the mask of the trees in the images. This is done to make sure the trees are big enough in the images to be detected by the model. The default value for this parameter is 20 pixels.</p>
+</blockquote>
+<div id="c7143b26" class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> model_training <span class="im">import</span> ImagesDataset</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> ImagesDataset(<span class="st">"data/patches"</span>)</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">3</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">5</span>))</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>axes <span class="op">=</span> axes.flatten()</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, (img, mask) <span class="kw">in</span> <span class="bu">zip</span>(axes, dataset):</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(img.shape, mask.shape)</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> (</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>        mask.shape[<span class="op">-</span><span class="dv">1</span>] <span class="op">==</span> <span class="dv">2</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>    ), <span class="ss">f"The mask should have 2 channels, </span><span class="sc">{</span>mask<span class="sc">.</span>shape[<span class="dv">0</span>]<span class="sc">}</span><span class="ss"> found."</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>    mask <span class="op">=</span> mask.argmax(<span class="op">-</span><span class="dv">1</span>)</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> np.stack([img, img, img], axis<span class="op">=-</span><span class="dv">1</span>)</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>    img[mask <span class="op">==</span> <span class="dv">1</span>] <span class="op">=</span> [<span class="dv">255</span>, <span class="dv">0</span>, <span class="dv">0</span>]</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>    ax.imshow(img)</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>    ax.axis(<span class="st">"off"</span>)</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>(128, 128) (128, 128, 2)
+(128, 128) (128, 128, 2)
+(128, 128) (128, 128, 2)
+(128, 128) (128, 128, 2)
+(128, 128) (128, 128, 2)
+(128, 128) (128, 128, 2)</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-15-output-2.png" width="518" height="470" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="model-architecture---unet" class="level2">
+<h2 class="anchored" data-anchor-id="model-architecture---unet">Model Architecture - Unet</h2>
+<blockquote class="blockquote">
+<p><strong>Note:</strong> A pretrained model was not utilized in this project because the images in our dataset differ significantly from the domain of images on which the pretrained model was originally trained.</p>
+</blockquote>
+</section>
+<section id="model-architecture" class="level2">
+<h2 class="anchored" data-anchor-id="model-architecture">Model Architecture</h2>
+<p>We took the Unet model from <a href="https://github.com/milesial/Pytorch-UNet/tree/master/unet">this repo</a> and we will use it to train our model. Here we can see the model architecture of the Unet model we are going to use.</p>
+<div id="be5f105a" class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> model_training <span class="im">import</span> setup_model</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>model, optimizer, criterion, device <span class="op">=</span> setup_model()</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(model)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>UNet(
+  (inc): DoubleConv(
+    (double_conv): Sequential(
+      (0): Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): ReLU(inplace=True)
+      (3): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (4): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (5): ReLU(inplace=True)
+    )
+  )
+  (down1): Down(
+    (maxpool_conv): Sequential(
+      (0): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (1): DoubleConv(
+        (double_conv): Sequential(
+          (0): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (2): ReLU(inplace=True)
+          (3): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (4): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (5): ReLU(inplace=True)
+        )
+      )
+    )
+  )
+  (down2): Down(
+    (maxpool_conv): Sequential(
+      (0): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (1): DoubleConv(
+        (double_conv): Sequential(
+          (0): Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (2): ReLU(inplace=True)
+          (3): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (4): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (5): ReLU(inplace=True)
+        )
+      )
+    )
+  )
+  (down3): Down(
+    (maxpool_conv): Sequential(
+      (0): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (1): DoubleConv(
+        (double_conv): Sequential(
+          (0): Conv2d(256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (2): ReLU(inplace=True)
+          (3): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (4): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (5): ReLU(inplace=True)
+        )
+      )
+    )
+  )
+  (down4): Down(
+    (maxpool_conv): Sequential(
+      (0): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+      (1): DoubleConv(
+        (double_conv): Sequential(
+          (0): Conv2d(512, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (1): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (2): ReLU(inplace=True)
+          (3): Conv2d(1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (4): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (5): ReLU(inplace=True)
+        )
+      )
+    )
+  )
+  (up1): Up(
+    (up): ConvTranspose2d(1024, 512, kernel_size=(2, 2), stride=(2, 2))
+    (conv): DoubleConv(
+      (double_conv): Sequential(
+        (0): Conv2d(1024, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (2): ReLU(inplace=True)
+        (3): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (4): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (5): ReLU(inplace=True)
+      )
+    )
+  )
+  (up2): Up(
+    (up): ConvTranspose2d(512, 256, kernel_size=(2, 2), stride=(2, 2))
+    (conv): DoubleConv(
+      (double_conv): Sequential(
+        (0): Conv2d(512, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (2): ReLU(inplace=True)
+        (3): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (4): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (5): ReLU(inplace=True)
+      )
+    )
+  )
+  (up3): Up(
+    (up): ConvTranspose2d(256, 128, kernel_size=(2, 2), stride=(2, 2))
+    (conv): DoubleConv(
+      (double_conv): Sequential(
+        (0): Conv2d(256, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (2): ReLU(inplace=True)
+        (3): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (4): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (5): ReLU(inplace=True)
+      )
+    )
+  )
+  (up4): Up(
+    (up): ConvTranspose2d(128, 64, kernel_size=(2, 2), stride=(2, 2))
+    (conv): DoubleConv(
+      (double_conv): Sequential(
+        (0): Conv2d(128, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (2): ReLU(inplace=True)
+        (3): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (4): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (5): ReLU(inplace=True)
+      )
+    )
+  )
+  (outc): OutConv(
+    (conv): Conv2d(64, 2, kernel_size=(1, 1), stride=(1, 1))
+  )
+)</code></pre>
+</div>
+</div>
+</section>
+<section id="data-loading-and-training" class="level2">
+<h2 class="anchored" data-anchor-id="data-loading-and-training">Data Loading and Training</h2>
+<div id="4183ff3f" class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> model_training <span class="im">import</span> train_model</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>all_train_loss, all_val_loss, model, val_loader, train_loader <span class="op">=</span> train_model(</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    data_folder<span class="op">=</span><span class="st">"./data/patches"</span>,</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>    model_save_path<span class="op">=</span><span class="st">"unet_model.pth"</span>,</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>    epochs<span class="op">=</span><span class="dv">10</span>,</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>    batch_size<span class="op">=</span><span class="dv">16</span>,</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>    learning_rate<span class="op">=</span><span class="fl">1e-3</span>,</span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="725198ce" class="cell" data-execution_count="17">
+<div class="cell-output cell-output-stdout">
+<pre><code>
+ython model_training.py 
+100%|████████████████████████████████████████████████████████| 115/115 [00:39&lt;00:00,  2.90it/s]
+Epoch 1/10, Train Loss: 0.1579, Val Loss: 0.0677
+100%|████████████████████████████████████████████████████████| 115/115 [00:35&lt;00:00,  3.24it/s]
+Epoch 2/10, Train Loss: 0.0556, Val Loss: 0.0483
+100%|████████████████████████████████████████████████████████| 115/115 [00:35&lt;00:00,  3.25it/s]
+Epoch 3/10, Train Loss: 0.0459, Val Loss: 0.0435
+100%|████████████████████████████████████████████████████████| 115/115 [00:35&lt;00:00,  3.26it/s]
+Epoch 4/10, Train Loss: 0.0431, Val Loss: 0.0421
+100%|████████████████████████████████████████████████████████| 115/115 [00:35&lt;00:00,  3.28it/s]
+Epoch 5/10, Train Loss: 0.0416, Val Loss: 0.0410
+100%|████████████████████████████████████████████████████████| 115/115 [00:35&lt;00:00,  3.28it/s]
+Epoch 6/10, Train Loss: 0.0409, Val Loss: 0.0405
+100%|████████████████████████████████████████████████████████| 115/115 [00:34&lt;00:00,  3.29it/s]
+Epoch 7/10, Train Loss: 0.0404, Val Loss: 0.0401
+100%|████████████████████████████████████████████████████████| 115/115 [00:35&lt;00:00,  3.27it/s]
+Epoch 8/10, Train Loss: 0.0400, Val Loss: 0.0397
+100%|████████████████████████████████████████████████████████| 115/115 [00:35&lt;00:00,  3.27it/s]
+Epoch 9/10, Train Loss: 0.0395, Val Loss: 0.0408
+100%|████████████████████████████████████████████████████████| 115/115 [00:34&lt;00:00,  3.29it/s]
+Epoch 10/10, Train Loss: 0.0390, Val Loss: 0.0399
+Model saved to unet_model.pth
+Train and validation loss saved to train_val_loss.npy
+</code></pre>
+</div>
+</div>
+<div id="54fd8fa5" class="cell" data-execution_count="19">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">5</span>))</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>plt.plot(all_train_loss, label<span class="op">=</span><span class="st">"Train Loss"</span>)</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>plt.plot(all_val_loss, label<span class="op">=</span><span class="st">"Validation Loss"</span>)</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"Epoch"</span>)</span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Loss"</span>)</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Training and Validation Loss"</span>)</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-20-output-1.png" width="821" height="449" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="model-evaluation" class="level2">
+<h2 class="anchored" data-anchor-id="model-evaluation">Model Evaluation</h2>
+<div id="d0df15e6" class="cell" data-execution_count="21">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">4</span>, <span class="dv">3</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>legend_elements <span class="op">=</span> [</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>    plt.Line2D(</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>        [<span class="dv">0</span>],</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>        [<span class="dv">0</span>],</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>        marker<span class="op">=</span><span class="st">"o"</span>,</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>        color<span class="op">=</span><span class="st">"w"</span>,</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>        markerfacecolor<span class="op">=</span><span class="st">"green"</span>,</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>        markersize<span class="op">=</span><span class="dv">10</span>,</span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>        label<span class="op">=</span><span class="st">"Predicted"</span>,</span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a>    plt.Line2D(</span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a>        [<span class="dv">0</span>],</span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a>        [<span class="dv">0</span>],</span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a>        marker<span class="op">=</span><span class="st">"o"</span>,</span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a>        color<span class="op">=</span><span class="st">"w"</span>,</span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a>        markerfacecolor<span class="op">=</span><span class="st">"red"</span>,</span>
+<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a>        markersize<span class="op">=</span><span class="dv">10</span>,</span>
+<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a>        label<span class="op">=</span><span class="st">"Ground Truth"</span>,</span>
+<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb28-22"><a href="#cb28-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-23"><a href="#cb28-23" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>, <span class="op">-</span><span class="dv">1</span>].legend(</span>
+<span id="cb28-24"><a href="#cb28-24" aria-hidden="true" tabindex="-1"></a>    handles<span class="op">=</span>legend_elements, loc<span class="op">=</span><span class="st">"center left"</span>, bbox_to_anchor<span class="op">=</span>(<span class="fl">1.1</span>, <span class="fl">0.5</span>)</span>
+<span id="cb28-25"><a href="#cb28-25" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb28-26"><a href="#cb28-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-27"><a href="#cb28-27" aria-hidden="true" tabindex="-1"></a>axes <span class="op">=</span> axes.flatten()</span>
+<span id="cb28-28"><a href="#cb28-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-29"><a href="#cb28-29" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, (img, mask) <span class="kw">in</span> <span class="bu">zip</span>(axes, val_loader):</span>
+<span id="cb28-30"><a href="#cb28-30" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> img.to(device)</span>
+<span id="cb28-31"><a href="#cb28-31" aria-hidden="true" tabindex="-1"></a>    mask <span class="op">=</span> mask.to(device)</span>
+<span id="cb28-32"><a href="#cb28-32" aria-hidden="true" tabindex="-1"></a>    pred <span class="op">=</span> model(img).detach().cpu()</span>
+<span id="cb28-33"><a href="#cb28-33" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> img[<span class="dv">0</span>].squeeze(<span class="dv">0</span>).cpu().numpy()</span>
+<span id="cb28-34"><a href="#cb28-34" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> (img <span class="op">-</span> img.<span class="bu">min</span>()) <span class="op">/</span> (img.<span class="bu">max</span>() <span class="op">-</span> img.<span class="bu">min</span>()) <span class="op">*</span> <span class="dv">255</span></span>
+<span id="cb28-35"><a href="#cb28-35" aria-hidden="true" tabindex="-1"></a>    mask <span class="op">=</span> mask[<span class="dv">0</span>].squeeze(<span class="dv">0</span>).cpu().numpy().argmax(<span class="dv">0</span>)</span>
+<span id="cb28-36"><a href="#cb28-36" aria-hidden="true" tabindex="-1"></a>    pred <span class="op">=</span> pred[<span class="dv">0</span>].squeeze(<span class="dv">0</span>).cpu().numpy().argmax(<span class="dv">0</span>)</span>
+<span id="cb28-37"><a href="#cb28-37" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> np.stack([img, img, img], axis<span class="op">=-</span><span class="dv">1</span>).astype(np.uint8)</span>
+<span id="cb28-38"><a href="#cb28-38" aria-hidden="true" tabindex="-1"></a>    img[mask <span class="op">==</span> <span class="dv">1</span>] <span class="op">=</span> [<span class="dv">255</span>, <span class="dv">0</span>, <span class="dv">0</span>]</span>
+<span id="cb28-39"><a href="#cb28-39" aria-hidden="true" tabindex="-1"></a>    img[pred <span class="op">==</span> <span class="dv">1</span>] <span class="op">=</span> [<span class="dv">0</span>, <span class="dv">255</span>, <span class="dv">0</span>]</span>
+<span id="cb28-40"><a href="#cb28-40" aria-hidden="true" tabindex="-1"></a>    ax.imshow(img)</span>
+<span id="cb28-41"><a href="#cb28-41" aria-hidden="true" tabindex="-1"></a>    ax.axis(<span class="st">"off"</span>)</span>
+<span id="cb28-42"><a href="#cb28-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-43"><a href="#cb28-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-44"><a href="#cb28-44" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb28-45"><a href="#cb28-45" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-22-output-1.png" width="910" height="950" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The model outputs a segmentation map—a binary matrix of 0s and 1s with the same dimensions as the input image. In this map, pixels with a value of 1 represent tree regions, while pixels with a value of 0 represent the background. However, to determine the final locations of individual trees, further post-processing is required to identify distinct tree positions from the segmentation output.</p>
+<p>One approach to achieve this is by using clustering algorithms. For example, <strong>DBSCAN</strong> is particularly suitable because it identifies clusters (tree locations) without requiring the number of clusters (trees) to be predefined. This is a significant advantage over algorithms like <strong>k-means</strong>, which require the number of clusters as an input—a parameter that is not known in this case, given the varying number of trees across different images.</p>
+<p>Alternatively, <strong>image processing techniques</strong> can be employed to find connected components in the binary segmentation map. Connected component analysis groups neighboring pixels with a value of 1 into distinct regions, each representing an individual tree. This method is computationally efficient and well-suited for binary data like segmentation maps, making it a reliable option for detecting tree locations in this context.</p>
+<p>Both approaches offer viable solutions, and the choice depends on factors like computational efficiency, the quality of the segmentation output, and the characteristics of the tree distribution in the images.</p>
+<p>When deciding between clustering algorithms and image processing techniques for extracting tree locations from a segmentation map, the choice largely depends on the specific characteristics of the problem:</p>
+<ul>
+<li><p><strong>Image Processing (Connected Components Analysis):</strong> This method is generally better for binary segmentation maps, as it is straightforward, computationally efficient, and does not require any additional hyperparameter tuning. It directly identifies distinct connected regions of pixels with a value of 1, making it highly reliable for well-defined and non-overlapping tree regions. However, it may struggle with noisy or fragmented segmentation maps, where tree regions are not clearly separated or contain gaps between pixels. To overcome these limitations, additional preprocessing steps like morphological operations (e.g., dilation and erosion) can be applied to refine the segmentation map before extracting tree locations.</p></li>
+<li><p><strong>Clustering Algorithms (e.g., DBSCAN):</strong> DBSCAN is better suited when the segmentation map has noise or when tree regions are not strictly connected but rather consist of scattered pixels. It can handle irregular shapes and separate clusters based on spatial density, making it more robust in noisy conditions. However, it requires tuning hyperparameters like the neighborhood radius (eps) and the minimum number of points in a cluster.</p></li>
+</ul>
+<p>The function is available in the <code>utils.py</code> file. The function is called <code>find_tree_locations</code>.</p>
+<ol type="1">
+<li><strong>Morphological Preprocessing:</strong>
+<ul>
+<li>The segmentation map is converted to binary format if not already binary.</li>
+<li>A morphological opening operation (erosion followed by dilation) removes small noise regions while preserving the shape of larger tree regions. The kernel size determines the level of noise removal.</li>
+</ul></li>
+<li><strong>Connected Components Analysis:</strong>
+<ul>
+<li>After cleaning, the connected components are labeled uniquely.</li>
+<li>The centroid of each labeled region is calculated using the <code>scipy.ndimage.center_of_mass</code> function, which identifies the approximate location of each tree.</li>
+</ul></li>
+</ol>
+<p>for instance, in the latest segmentation we had:</p>
+<div id="6c7a44c1" class="cell" data-execution_count="22">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> utils <span class="im">import</span> find_tree_locations</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>plt.imshow(img)</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>plt.axis(<span class="st">"off"</span>)</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Segmentation Map"</span>)</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>plt.show()</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>trees <span class="op">=</span> find_tree_locations(pred.astype(np.uint8))</span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a><span class="co"># print(</span></span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a><span class="co">#     f"Dectected trees are:",</span></span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a><span class="co">#     *[f"Tree {i + 1: &gt;2d}: ({x:6.2f}, {y:6.2f})" for i, (x, y) in enumerate(trees)],</span></span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a><span class="co">#     sep="\n",</span></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a><span class="co"># )</span></span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(</span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a>    trees, columns<span class="op">=</span>[<span class="st">"X"</span>, <span class="st">"Y"</span>], index<span class="op">=</span>[<span class="ss">f"Tree </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">"</span> <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(trees))]</span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-23-output-1.png" width="389" height="409" class="figure-img"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="122">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">X</th>
+<th data-quarto-table-cell-role="th">Y</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 1</td>
+<td>7.000000</td>
+<td>41.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 2</td>
+<td>11.500000</td>
+<td>100.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 3</td>
+<td>22.000000</td>
+<td>114.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 4</td>
+<td>27.300000</td>
+<td>73.300000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 5</td>
+<td>35.347826</td>
+<td>4.782609</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 6</td>
+<td>37.000000</td>
+<td>22.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 7</td>
+<td>37.000000</td>
+<td>57.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 8</td>
+<td>40.000000</td>
+<td>74.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 9</td>
+<td>47.357143</td>
+<td>61.785714</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 10</td>
+<td>47.000000</td>
+<td>114.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 11</td>
+<td>48.000000</td>
+<td>11.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 12</td>
+<td>49.500000</td>
+<td>3.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 13</td>
+<td>51.500000</td>
+<td>114.500000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 14</td>
+<td>55.000000</td>
+<td>113.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 15</td>
+<td>59.000000</td>
+<td>86.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 16</td>
+<td>60.500000</td>
+<td>70.500000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 17</td>
+<td>61.000000</td>
+<td>103.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 18</td>
+<td>66.000000</td>
+<td>100.500000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 19</td>
+<td>66.500000</td>
+<td>57.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 20</td>
+<td>81.785714</td>
+<td>34.642857</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 21</td>
+<td>82.000000</td>
+<td>99.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 22</td>
+<td>84.000000</td>
+<td>69.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 23</td>
+<td>87.700000</td>
+<td>52.300000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 24</td>
+<td>94.000000</td>
+<td>49.588235</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 25</td>
+<td>94.500000</td>
+<td>40.500000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 26</td>
+<td>95.000000</td>
+<td>94.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 27</td>
+<td>97.500000</td>
+<td>44.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 28</td>
+<td>101.000000</td>
+<td>115.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 29</td>
+<td>107.073171</td>
+<td>51.439024</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 30</td>
+<td>108.000000</td>
+<td>84.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 31</td>
+<td>109.000000</td>
+<td>42.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 32</td>
+<td>113.000000</td>
+<td>55.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 33</td>
+<td>121.636364</td>
+<td>92.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 34</td>
+<td>122.000000</td>
+<td>99.000000</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div id="66a9c1bb" class="cell" data-execution_count="23">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>gt_trees <span class="op">=</span> find_tree_locations(mask.astype(np.uint8))</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>pd.DataFrame(</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>    gt_trees, columns<span class="op">=</span>[<span class="st">"X"</span>, <span class="st">"Y"</span>], index<span class="op">=</span>[<span class="ss">f"Tree </span><span class="sc">{</span>i <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">"</span> <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(gt_trees))]</span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="123">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">X</th>
+<th data-quarto-table-cell-role="th">Y</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 1</td>
+<td>0.714286</td>
+<td>90.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 2</td>
+<td>0.333333</td>
+<td>126.666667</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 3</td>
+<td>2.000000</td>
+<td>35.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 4</td>
+<td>3.000000</td>
+<td>121.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 5</td>
+<td>4.000000</td>
+<td>31.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">...</td>
+<td>...</td>
+<td>...</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 108</td>
+<td>123.000000</td>
+<td>80.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 109</td>
+<td>123.000000</td>
+<td>99.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 110</td>
+<td>126.285714</td>
+<td>38.000000</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">Tree 111</td>
+<td>126.750000</td>
+<td>96.000000</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">Tree 112</td>
+<td>126.750000</td>
+<td>124.000000</td>
+</tr>
+</tbody>
+</table>
+
+<p>112 rows × 2 columns</p>
+</div>
+</div>
+</div>
+</section>
+<section id="performance-evaluation-and-insights" class="level2">
+<h2 class="anchored" data-anchor-id="performance-evaluation-and-insights">Performance evaluation and insights</h2>
+<p>In this stage of the project, we address a critical challenge in tree detection: the number of ground truth trees (manually labeled) and predicted trees (from the detection model) may not be the same. Moreover, there is no predefined one-to-one correspondence between the two sets, making direct comparisons infeasible. To evaluate the accuracy of the detection model and understand the spatial relationships between ground truth and predicted trees, a systematic method is needed to compare their positions.</p>
+<section id="pairwise-distance-calculation" class="level3">
+<h3 class="anchored" data-anchor-id="pairwise-distance-calculation">Pairwise Distance Calculation</h3>
+<p>The <code>compute_pairwise_distances</code> function solves this problem by calculating the pairwise Euclidean distances between the two sets of tree coordinates. This function produces a distance matrix, where each entry represents the spatial distance between a predicted tree and a ground truth tree. The matrix enables flexible matching and evaluation strategies, such as identifying the closest pairs or analyzing unmatched trees, even when the number of trees differs between the two sets.</p>
+<p>The function relies on the <code>distance.cdist</code> method from the <code>scipy.spatial</code> module. This method efficiently computes all pairwise Euclidean distances between two sets of points. For each pair of points <span class="math inline">\((x_1, y_1)\)</span> and <span class="math inline">\((x_2, y_2)\)</span>, it calculates the distance as:</p>
+<p><span class="math display">\[
+d = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}
+\]</span></p>
+<p>The resulting matrix has dimensions <span class="math inline">\(M \times N\)</span>, where <span class="math inline">\(M\)</span> is the number of predicted trees and <span class="math inline">\(N\)</span> is the number of ground truth trees. This distance matrix provides the foundation for evaluating and refining the tree detection model’s performance.</p>
+</section>
+<section id="evaluation-with-threshold-based-matching" class="level3">
+<h3 class="anchored" data-anchor-id="evaluation-with-threshold-based-matching">Evaluation with Threshold-Based Matching</h3>
+<p>The <code>evaluate_with_threshold</code> assesses the performance of the detection model by comparing predicted and ground truth tree coordinates within a specified distance threshold. A prediction is considered correct if it is within the threshold distance of any ground truth tree.</p>
+<ol type="1">
+<li><strong>Distance Matrix Calculation</strong>: The function computes the pairwise distance matrix using the <code>compute_pairwise_distances</code> function.</li>
+<li><strong>Matching Predictions</strong>: For each predicted tree, the minimum distance to any ground truth tree is calculated. It will be considered as a match if this distance is below the threshold.</li>
+<li><strong>Metrics Calculation</strong>:
+<ul>
+<li><strong>True Positives (TP)</strong>: Count of predictions matched to ground truth within the threshold.</li>
+<li><strong>False Positives (FP)</strong>: Predicted trees that are unmatched.</li>
+<li><strong>False Negatives (FN)</strong>: Ground truth trees that are unmatched.</li>
+<li><strong>Precision, Recall, and F1-Score</strong> are calculated using the TP, FP, and FN values.</li>
+</ul></li>
+</ol>
+</section>
+<section id="hungarian-algorithm-for-optimal-matching" class="level3">
+<h3 class="anchored" data-anchor-id="hungarian-algorithm-for-optimal-matching">Hungarian Algorithm for Optimal Matching</h3>
+<p>The <code>evaluate_with_hungarian</code> function uses the Hungarian algorithm to find an optimal one-to-one correspondence between predicted and ground truth trees. This method minimizes the total distance between matched pairs and it ensures the most accurate evaluation possible.</p>
+<ol type="1">
+<li><strong>Optimal Assignment</strong>: Using the distance matrix, the Hungarian algorithm identifies the best matching pairs of predicted and ground truth trees.</li>
+<li><strong>Threshold Filtering</strong>: Matched pairs exceeding the threshold distance are excluded. We only consider pairs with accurate predictions.</li>
+<li><strong>Metrics Calculation</strong>:
+<ul>
+<li><strong>True Positives (TP)</strong>: Matched pairs within the threshold.</li>
+<li><strong>False Positives (FP)</strong>: Predicted trees that remain unmatched after filtering.</li>
+<li><strong>False Negatives (FN)</strong>: Ground truth trees that remain unmatched.</li>
+</ul></li>
+</ol>
+</section>
+<section id="error-metrics-rmse-and-mae" class="level3">
+<h3 class="anchored" data-anchor-id="error-metrics-rmse-and-mae">Error Metrics: RMSE and MAE</h3>
+<p>To quantify the positional accuracy of matched pairs, we compute <strong>Root Mean Squared Error (RMSE)</strong> and <strong>Mean Absolute Error (MAE)</strong>. These metrics provide a smooth evaluation of the spatial accuracy of predictions.</p>
+<section id="rmse" class="level4">
+<h4 class="anchored" data-anchor-id="rmse">RMSE:</h4>
+<ul>
+<li>By calculating RMSE, we emphasize on larger errors, making it sensitive to outliers in the predictions.</li>
+</ul>
+</section>
+<section id="mae" class="level4">
+<h4 class="anchored" data-anchor-id="mae">MAE:</h4>
+<ul>
+<li>By calculating MAE, we provide an average of absolute positional errors, offering a more balanced view of prediction accuracy.</li>
+</ul>
+<p>Both metrics rely on the optimal matching calculated by the Hungarian algorithm, to get a comprehensive and better understanding of the model’s performance.</p>
+<p>Now lets evaluate the model using the above functions.</p>
+<div id="989ec406" class="cell" data-execution_count="24">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> <span class="bu">eval</span> <span class="im">import</span> (</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>    evaluate_with_threshold,</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>    evaluate_with_hungarian,</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>    compute_rmse,</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>    compute_mae,</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>threshold <span class="op">=</span> <span class="dv">10</span></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> func <span class="kw">in</span> [</span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>    evaluate_with_threshold,</span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>    evaluate_with_hungarian,</span>
+<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a>    compute_rmse,</span>
+<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a>    compute_mae,</span>
+<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a>]:</span>
+<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(func.<span class="va">__name__</span>)</span>
+<span id="cb31-16"><a href="#cb31-16" aria-hidden="true" tabindex="-1"></a>    out <span class="op">=</span> func(gt_trees, trees, threshold)</span>
+<span id="cb31-17"><a href="#cb31-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">isinstance</span>(out, <span class="bu">dict</span>):</span>
+<span id="cb31-18"><a href="#cb31-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span>.join(<span class="ss">f"</span><span class="ch">\t</span><span class="sc">{</span>k<span class="sc">:&lt;10}</span><span class="ss">: </span><span class="sc">{</span>v<span class="sc">}</span><span class="ss">"</span> <span class="cf">for</span> k, v <span class="kw">in</span> out.items()))</span>
+<span id="cb31-19"><a href="#cb31-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb31-20"><a href="#cb31-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(out)</span>
+<span id="cb31-21"><a href="#cb31-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"-----------------------------------"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>evaluate_with_threshold
+    precision : 1.0
+    recall    : 0.5230769230769231
+    f1_score  : 0.686868686868687
+    true_positives: 34
+    false_positives: 0
+    false_negatives: 31
+-----------------------------------
+evaluate_with_hungarian
+    precision : 1.0
+    recall    : 0.30357142857142855
+    f1_score  : 0.4657534246575342
+    true_positives: 34
+    false_positives: 0
+    false_negatives: 78
+    unmatched_predictions: 0
+    unmatched_ground_truth: 78
+-----------------------------------
+compute_rmse
+1.7325652766348953
+-----------------------------------
+compute_mae
+1.3012198632484238
+-----------------------------------</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="evaluation-over-all-the-dataset" class="level3">
+<h3 class="anchored" data-anchor-id="evaluation-over-all-the-dataset">Evaluation over all the dataset</h3>
+<div id="ac0f22ba" class="cell" data-execution_count="25">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> torch.utils.data <span class="im">import</span> DataLoader</span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> collections <span class="im">import</span> defaultdict</span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>train_loader, val_loader <span class="op">=</span> create_dataset(<span class="st">"data/patches"</span>, batch_size<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a>metrics <span class="op">=</span> defaultdict(<span class="bu">list</span>)</span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>threshold <span class="op">=</span> <span class="dv">10</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> img, mask <span class="kw">in</span> val_loader:</span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> img.shape[<span class="dv">0</span>] <span class="op">==</span> <span class="dv">1</span>, <span class="st">"Batch size should be 1 for evaluation."</span></span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a>    img <span class="op">=</span> img.to(device)</span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a>    mask <span class="op">=</span> mask.to(device)</span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a>    pred <span class="op">=</span> model(img).detach().cpu()</span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a>    mask <span class="op">=</span> mask.squeeze().cpu().numpy().argmax(<span class="dv">0</span>)</span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a>    pred <span class="op">=</span> pred.squeeze().cpu().numpy().argmax(<span class="dv">0</span>)</span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(np.unique(mask)) <span class="op">==</span> <span class="dv">1</span> <span class="kw">or</span> <span class="bu">len</span>(np.unique(pred)) <span class="op">==</span> <span class="dv">1</span>:</span>
+<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span></span>
+<span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a>    gt_trees <span class="op">=</span> find_tree_locations(mask.astype(np.uint8))</span>
+<span id="cb33-19"><a href="#cb33-19" aria-hidden="true" tabindex="-1"></a>    trees <span class="op">=</span> find_tree_locations(pred.astype(np.uint8))</span>
+<span id="cb33-20"><a href="#cb33-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> gt_trees.size <span class="kw">or</span> <span class="kw">not</span> trees.size:</span>
+<span id="cb33-21"><a href="#cb33-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span></span>
+<span id="cb33-22"><a href="#cb33-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> func <span class="kw">in</span> [</span>
+<span id="cb33-23"><a href="#cb33-23" aria-hidden="true" tabindex="-1"></a>        evaluate_with_threshold,</span>
+<span id="cb33-24"><a href="#cb33-24" aria-hidden="true" tabindex="-1"></a>        evaluate_with_hungarian,</span>
+<span id="cb33-25"><a href="#cb33-25" aria-hidden="true" tabindex="-1"></a>        compute_rmse,</span>
+<span id="cb33-26"><a href="#cb33-26" aria-hidden="true" tabindex="-1"></a>        compute_mae,</span>
+<span id="cb33-27"><a href="#cb33-27" aria-hidden="true" tabindex="-1"></a>    ]:</span>
+<span id="cb33-28"><a href="#cb33-28" aria-hidden="true" tabindex="-1"></a>        out <span class="op">=</span> func(gt_trees, trees, threshold)</span>
+<span id="cb33-29"><a href="#cb33-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">isinstance</span>(out, <span class="bu">dict</span>):</span>
+<span id="cb33-30"><a href="#cb33-30" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> k, v <span class="kw">in</span> out.items():</span>
+<span id="cb33-31"><a href="#cb33-31" aria-hidden="true" tabindex="-1"></a>                metrics[<span class="ss">f"</span><span class="sc">{</span>func<span class="sc">.</span><span class="va">__name__</span><span class="sc">}</span><span class="ss">_</span><span class="sc">{</span>k<span class="sc">}</span><span class="ss">"</span>].append(v)</span>
+<span id="cb33-32"><a href="#cb33-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb33-33"><a href="#cb33-33" aria-hidden="true" tabindex="-1"></a>            metrics[func.<span class="va">__name__</span>].append(out)</span>
+<span id="cb33-34"><a href="#cb33-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-35"><a href="#cb33-35" aria-hidden="true" tabindex="-1"></a>max_length <span class="op">=</span> ml <span class="op">=</span> <span class="bu">max</span>(<span class="bu">len</span>(k) <span class="cf">for</span> k <span class="kw">in</span> metrics.keys())</span>
+<span id="cb33-36"><a href="#cb33-36" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> k, v <span class="kw">in</span> metrics.items():</span>
+<span id="cb33-37"><a href="#cb33-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> k.endswith(<span class="st">"tives"</span>):</span>
+<span id="cb33-38"><a href="#cb33-38" aria-hidden="true" tabindex="-1"></a>        metrics[k] <span class="op">=</span> np.mean(v)</span>
+<span id="cb33-39"><a href="#cb33-39" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb33-40"><a href="#cb33-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>k<span class="sc">:</span><span class="op">&lt;</span>{ml}<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>np<span class="sc">.</span>mean(v)<span class="sc">:.2f}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>evaluate_with_threshold_precision             : 0.95
+evaluate_with_threshold_recall                : 0.39
+evaluate_with_threshold_f1_score              : 0.53
+evaluate_with_hungarian_precision             : 0.94
+evaluate_with_hungarian_recall                : 0.29
+evaluate_with_hungarian_f1_score              : 0.44
+evaluate_with_hungarian_unmatched_predictions : 1.13
+evaluate_with_hungarian_unmatched_ground_truth: 49.79
+compute_rmse                                  : 3.93
+compute_mae                                   : 2.32</code></pre>
+</div>
+</div>
+<div id="b0196230" class="cell" data-execution_count="26">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>conf_matrix_hungarian <span class="op">=</span> [</span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a>    [</span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>        metrics[<span class="st">"evaluate_with_hungarian_true_positives"</span>],</span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a>        metrics[<span class="st">"evaluate_with_hungarian_false_negatives"</span>],</span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a>    [metrics[<span class="st">"evaluate_with_hungarian_false_positives"</span>], <span class="dv">0</span>],</span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(conf_matrix_hungarian)</span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a>conf_matrix_threshold <span class="op">=</span> [</span>
+<span id="cb35-13"><a href="#cb35-13" aria-hidden="true" tabindex="-1"></a>    [</span>
+<span id="cb35-14"><a href="#cb35-14" aria-hidden="true" tabindex="-1"></a>        metrics[<span class="st">"evaluate_with_threshold_true_positives"</span>],</span>
+<span id="cb35-15"><a href="#cb35-15" aria-hidden="true" tabindex="-1"></a>        metrics[<span class="st">"evaluate_with_threshold_false_negatives"</span>],</span>
+<span id="cb35-16"><a href="#cb35-16" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb35-17"><a href="#cb35-17" aria-hidden="true" tabindex="-1"></a>    [metrics[<span class="st">"evaluate_with_threshold_false_positives"</span>], <span class="dv">0</span>],</span>
+<span id="cb35-18"><a href="#cb35-18" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb35-19"><a href="#cb35-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(conf_matrix_threshold)</span>
+<span id="cb35-20"><a href="#cb35-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-21"><a href="#cb35-21" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].imshow(conf_matrix_hungarian, cmap<span class="op">=</span><span class="st">"Blues"</span>)</span>
+<span id="cb35-22"><a href="#cb35-22" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_title(<span class="st">"Hungarian Algorithm"</span>)</span>
+<span id="cb35-23"><a href="#cb35-23" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_xticks([<span class="dv">0</span>, <span class="dv">1</span>], [<span class="st">"Predicted"</span>, <span class="st">"Unmatched"</span>])</span>
+<span id="cb35-24"><a href="#cb35-24" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">0</span>].set_yticks([<span class="dv">0</span>, <span class="dv">1</span>], [<span class="st">"Ground Truth"</span>, <span class="st">"Unmatched"</span>], rotation<span class="op">=</span><span class="dv">90</span>)</span>
+<span id="cb35-25"><a href="#cb35-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-26"><a href="#cb35-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-27"><a href="#cb35-27" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].imshow(conf_matrix_threshold, cmap<span class="op">=</span><span class="st">"Blues"</span>)</span>
+<span id="cb35-28"><a href="#cb35-28" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_title(<span class="st">"Threshold-Based Matching"</span>)</span>
+<span id="cb35-29"><a href="#cb35-29" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_xticks([<span class="dv">0</span>, <span class="dv">1</span>], [<span class="st">"Predicted"</span>, <span class="st">"Unmatched"</span>])</span>
+<span id="cb35-30"><a href="#cb35-30" aria-hidden="true" tabindex="-1"></a>axes[<span class="dv">1</span>].set_yticks([<span class="dv">0</span>, <span class="dv">1</span>], [<span class="st">"Ground Truth"</span>, <span class="st">"Unmatched"</span>], rotation<span class="op">=</span><span class="dv">90</span>)</span>
+<span id="cb35-31"><a href="#cb35-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-32"><a href="#cb35-32" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">2</span>):</span>
+<span id="cb35-33"><a href="#cb35-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">2</span>):</span>
+<span id="cb35-34"><a href="#cb35-34" aria-hidden="true" tabindex="-1"></a>        axes[<span class="dv">0</span>].text(</span>
+<span id="cb35-35"><a href="#cb35-35" aria-hidden="true" tabindex="-1"></a>            j,</span>
+<span id="cb35-36"><a href="#cb35-36" aria-hidden="true" tabindex="-1"></a>            i,</span>
+<span id="cb35-37"><a href="#cb35-37" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f"</span><span class="sc">{</span>conf_matrix_hungarian[i][j]<span class="sc">:.3f}</span><span class="ss">"</span>,</span>
+<span id="cb35-38"><a href="#cb35-38" aria-hidden="true" tabindex="-1"></a>            ha<span class="op">=</span><span class="st">"center"</span>,</span>
+<span id="cb35-39"><a href="#cb35-39" aria-hidden="true" tabindex="-1"></a>            va<span class="op">=</span><span class="st">"center"</span>,</span>
+<span id="cb35-40"><a href="#cb35-40" aria-hidden="true" tabindex="-1"></a>            color<span class="op">=</span><span class="st">"red"</span>,</span>
+<span id="cb35-41"><a href="#cb35-41" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb35-42"><a href="#cb35-42" aria-hidden="true" tabindex="-1"></a>        axes[<span class="dv">1</span>].text(</span>
+<span id="cb35-43"><a href="#cb35-43" aria-hidden="true" tabindex="-1"></a>            j,</span>
+<span id="cb35-44"><a href="#cb35-44" aria-hidden="true" tabindex="-1"></a>            i,</span>
+<span id="cb35-45"><a href="#cb35-45" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f"</span><span class="sc">{</span>conf_matrix_threshold[i][j]<span class="sc">:.3f}</span><span class="ss">"</span>,</span>
+<span id="cb35-46"><a href="#cb35-46" aria-hidden="true" tabindex="-1"></a>            ha<span class="op">=</span><span class="st">"center"</span>,</span>
+<span id="cb35-47"><a href="#cb35-47" aria-hidden="true" tabindex="-1"></a>            va<span class="op">=</span><span class="st">"center"</span>,</span>
+<span id="cb35-48"><a href="#cb35-48" aria-hidden="true" tabindex="-1"></a>            color<span class="op">=</span><span class="st">"red"</span>,</span>
+<span id="cb35-49"><a href="#cb35-49" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb35-50"><a href="#cb35-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-51"><a href="#cb35-51" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[[np.float64(21.04943820224719), np.float64(49.79325842696629)], [np.float64(1.1325842696629214), 0]]
+[[np.float64(21.33258426966292), np.float64(33.193258426966295)], [np.float64(0.849438202247191), 0]]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="report_files/figure-html/cell-27-output-2.png" width="786" height="400" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="baseline-model-local-maxima-filtering" class="level2">
+<h2 class="anchored" data-anchor-id="baseline-model-local-maxima-filtering">Baseline Model (Local Maxima Filtering)</h2>
+<div id="f40246e8" class="cell" data-execution_count="27">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> scipy.spatial</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> local_maxima_filter(cloud: np.ndarray, window_size: <span class="bu">float</span>) <span class="op">-&gt;</span> np.ndarray:</span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Detect local maxima in the point cloud with a fixed window size."""</span></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="bu">isinstance</span>(</span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>        cloud, np.ndarray</span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a>    ), <span class="ss">f"Cloud needs to be a numpy array, not </span><span class="sc">{</span><span class="bu">type</span>(cloud)<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># cloud = cloud[cloud[:, 2] &gt; height_threshold]</span></span>
+<span id="cb37-12"><a href="#cb37-12" aria-hidden="true" tabindex="-1"></a>    tree <span class="op">=</span> scipy.spatial.KDTree(data<span class="op">=</span>cloud)</span>
+<span id="cb37-13"><a href="#cb37-13" aria-hidden="true" tabindex="-1"></a>    seen_mask <span class="op">=</span> np.zeros(cloud.shape[<span class="dv">0</span>], dtype<span class="op">=</span><span class="bu">bool</span>)</span>
+<span id="cb37-14"><a href="#cb37-14" aria-hidden="true" tabindex="-1"></a>    local_maxima <span class="op">=</span> []</span>
+<span id="cb37-15"><a href="#cb37-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-16"><a href="#cb37-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, point <span class="kw">in</span> <span class="bu">enumerate</span>(cloud):</span>
+<span id="cb37-17"><a href="#cb37-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> seen_mask[i]:</span>
+<span id="cb37-18"><a href="#cb37-18" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb37-19"><a href="#cb37-19" aria-hidden="true" tabindex="-1"></a>        neighbor_indices <span class="op">=</span> tree.query_ball_point(point, window_size)</span>
+<span id="cb37-20"><a href="#cb37-20" aria-hidden="true" tabindex="-1"></a>        highest_neighbor <span class="op">=</span> neighbor_indices[cloud[neighbor_indices, <span class="dv">2</span>].argmax()]</span>
+<span id="cb37-21"><a href="#cb37-21" aria-hidden="true" tabindex="-1"></a>        seen_mask[neighbor_indices] <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb37-22"><a href="#cb37-22" aria-hidden="true" tabindex="-1"></a>        seen_mask[highest_neighbor] <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb37-23"><a href="#cb37-23" aria-hidden="true" tabindex="-1"></a>        <span class="co"># This may lead to not every point being marked as seed in the end, but it does not matter,</span></span>
+<span id="cb37-24"><a href="#cb37-24" aria-hidden="true" tabindex="-1"></a>        <span class="co"># because by the time the seen value is overwritten the point is already processed</span></span>
+<span id="cb37-25"><a href="#cb37-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> i <span class="op">==</span> highest_neighbor:</span>
+<span id="cb37-26"><a href="#cb37-26" aria-hidden="true" tabindex="-1"></a>            local_maxima.append(i)</span>
+<span id="cb37-27"><a href="#cb37-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-28"><a href="#cb37-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> cloud[local_maxima]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Let’s find the best window size for the local maxima filter.</p>
+<div id="dc394edd" class="cell" data-execution_count="28">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> read_geojason_by_plot(file_path: <span class="bu">str</span> <span class="op">|</span> os.PathLike, plot_num: <span class="bu">int</span>) <span class="op">-&gt;</span> pd.DataFrame:</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> <span class="bu">open</span>(file_path) <span class="im">as</span> f:</span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>        data <span class="op">=</span> json.load(f)</span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>    data <span class="op">=</span> pd.DataFrame([i[<span class="st">"properties"</span>] <span class="op">|</span> i[<span class="st">'geometry'</span>] <span class="cf">for</span> i <span class="kw">in</span> data[<span class="st">"features"</span>]])</span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>    data[<span class="st">'x'</span>] <span class="op">=</span> data[<span class="st">'coordinates'</span>].<span class="bu">apply</span>(<span class="kw">lambda</span> x: x[<span class="dv">0</span>])</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a>    data[<span class="st">'y'</span>] <span class="op">=</span> data[<span class="st">'coordinates'</span>].<span class="bu">apply</span>(<span class="kw">lambda</span> x: x[<span class="dv">1</span>])</span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a>    data <span class="op">=</span> data.drop(columns<span class="op">=</span>[<span class="st">'coordinates'</span>])</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a>    <span class="co"># filter data by plot number</span></span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a>    data <span class="op">=</span> data[data[<span class="st">"plot"</span>] <span class="op">==</span> plot_num]</span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> data</span>
+<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> test_local_maxima(window_sizes: <span class="bu">list</span>):</span>
+<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> plot_num <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, <span class="dv">11</span>):</span>
+<span id="cb38-15"><a href="#cb38-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Plot </span><span class="sc">{</span>plot_num<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb38-16"><a href="#cb38-16" aria-hidden="true" tabindex="-1"></a>        gt_data <span class="op">=</span> read_geojason_by_plot(<span class="st">"data/field_survey.geojson"</span>, plot_num)</span>
+<span id="cb38-17"><a href="#cb38-17" aria-hidden="true" tabindex="-1"></a>        points <span class="op">=</span> laspy.read(<span class="ss">f"data/als/plot_</span><span class="sc">{</span>plot_num<span class="sc">:02d}</span><span class="ss">.las"</span>)</span>
+<span id="cb38-18"><a href="#cb38-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> window_size <span class="kw">in</span> window_sizes:</span>
+<span id="cb38-19"><a href="#cb38-19" aria-hidden="true" tabindex="-1"></a>            lm_points <span class="op">=</span> local_maxima_filter(points.xyz, window_size)</span>
+<span id="cb38-20"><a href="#cb38-20" aria-hidden="true" tabindex="-1"></a>            point_distances <span class="op">=</span> []</span>
+<span id="cb38-21"><a href="#cb38-21" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> lm_point <span class="kw">in</span> lm_points:</span>
+<span id="cb38-22"><a href="#cb38-22" aria-hidden="true" tabindex="-1"></a>                min_distance <span class="op">=</span> np.inf</span>
+<span id="cb38-23"><a href="#cb38-23" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> gt_point <span class="kw">in</span> gt_data[[<span class="st">'x'</span>, <span class="st">'y'</span>]].values:</span>
+<span id="cb38-24"><a href="#cb38-24" aria-hidden="true" tabindex="-1"></a>                    distance <span class="op">=</span> np.linalg.norm(lm_point[:<span class="dv">2</span>] <span class="op">-</span> gt_point)</span>
+<span id="cb38-25"><a href="#cb38-25" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span> distance <span class="op">&lt;</span> min_distance:</span>
+<span id="cb38-26"><a href="#cb38-26" aria-hidden="true" tabindex="-1"></a>                        min_distance <span class="op">=</span> distance</span>
+<span id="cb38-27"><a href="#cb38-27" aria-hidden="true" tabindex="-1"></a>                point_distances.append(min_distance)</span>
+<span id="cb38-28"><a href="#cb38-28" aria-hidden="true" tabindex="-1"></a>            point_distances <span class="op">=</span> [<span class="bu">float</span>(distance) <span class="cf">for</span> distance <span class="kw">in</span> point_distances]</span>
+<span id="cb38-29"><a href="#cb38-29" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Window size: </span><span class="sc">{</span>window_size<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb38-30"><a href="#cb38-30" aria-hidden="true" tabindex="-1"></a>            <span class="co"># print("Sum distance:", np.sum(point_distances))</span></span>
+<span id="cb38-31"><a href="#cb38-31" aria-hidden="true" tabindex="-1"></a>            <span class="co"># print("Median distance:", np.median(point_distances))</span></span>
+<span id="cb38-32"><a href="#cb38-32" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="st">"local maxima filter (number of trees):"</span>, lm_points.shape[<span class="dv">0</span>])</span>
+<span id="cb38-33"><a href="#cb38-33" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="st">"ground truth (number of trees):"</span>, gt_data.shape[<span class="dv">0</span>])</span>
+<span id="cb38-34"><a href="#cb38-34" aria-hidden="true" tabindex="-1"></a>        <span class="co"># plt.figure(figsize=(10, 5))</span></span>
+<span id="cb38-35"><a href="#cb38-35" aria-hidden="true" tabindex="-1"></a>        <span class="co"># plt.hist(point_distances, bins=20, color='skyblue', edgecolor='black')</span></span>
+<span id="cb38-36"><a href="#cb38-36" aria-hidden="true" tabindex="-1"></a>        <span class="co"># plt.xlabel('Distance to nearest ground truth point')</span></span>
+<span id="cb38-37"><a href="#cb38-37" aria-hidden="true" tabindex="-1"></a>        <span class="co"># plt.ylabel('Frequency')</span></span>
+<span id="cb38-38"><a href="#cb38-38" aria-hidden="true" tabindex="-1"></a>        <span class="co"># plt.show()</span></span>
+<span id="cb38-39"><a href="#cb38-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-40"><a href="#cb38-40" aria-hidden="true" tabindex="-1"></a>test_local_maxima([<span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Plot 1
+Window size: 2
+local maxima filter (number of trees): 1183
+ground truth (number of trees): 420
+Window size: 3
+local maxima filter (number of trees): 424
+ground truth (number of trees): 420
+Window size: 4
+local maxima filter (number of trees): 182
+ground truth (number of trees): 420
+Plot 2
+Window size: 2
+local maxima filter (number of trees): 811
+ground truth (number of trees): 365
+Window size: 3
+local maxima filter (number of trees): 215
+ground truth (number of trees): 365
+Window size: 4
+local maxima filter (number of trees): 102
+ground truth (number of trees): 365
+Plot 3
+Window size: 2
+local maxima filter (number of trees): 1024
+ground truth (number of trees): 332
+Window size: 3
+local maxima filter (number of trees): 296
+ground truth (number of trees): 332
+Window size: 4
+local maxima filter (number of trees): 119
+ground truth (number of trees): 332
+Plot 4
+Window size: 2
+local maxima filter (number of trees): 780
+ground truth (number of trees): 261
+Window size: 3
+local maxima filter (number of trees): 211
+ground truth (number of trees): 261
+Window size: 4
+local maxima filter (number of trees): 86
+ground truth (number of trees): 261
+Plot 5
+Window size: 2
+local maxima filter (number of trees): 781
+ground truth (number of trees): 208
+Window size: 3
+local maxima filter (number of trees): 246
+ground truth (number of trees): 208
+Window size: 4
+local maxima filter (number of trees): 122
+ground truth (number of trees): 208
+Plot 6
+Window size: 2
+local maxima filter (number of trees): 1092
+ground truth (number of trees): 290
+Window size: 3
+local maxima filter (number of trees): 365
+ground truth (number of trees): 290
+Window size: 4
+local maxima filter (number of trees): 145
+ground truth (number of trees): 290
+Plot 7
+Window size: 2
+local maxima filter (number of trees): 1231
+ground truth (number of trees): 408
+Window size: 3
+local maxima filter (number of trees): 412
+ground truth (number of trees): 408
+Window size: 4
+local maxima filter (number of trees): 149
+ground truth (number of trees): 408
+Plot 8
+Window size: 2
+local maxima filter (number of trees): 1206
+ground truth (number of trees): 341
+Window size: 3
+local maxima filter (number of trees): 338
+ground truth (number of trees): 341
+Window size: 4
+local maxima filter (number of trees): 135
+ground truth (number of trees): 341
+Plot 9
+Window size: 2
+local maxima filter (number of trees): 1005
+ground truth (number of trees): 459
+Window size: 3
+local maxima filter (number of trees): 329
+ground truth (number of trees): 459
+Window size: 4
+local maxima filter (number of trees): 146
+ground truth (number of trees): 459
+Plot 10
+Window size: 2
+local maxima filter (number of trees): 702
+ground truth (number of trees): 518
+Window size: 3
+local maxima filter (number of trees): 296
+ground truth (number of trees): 518
+Window size: 4
+local maxima filter (number of trees): 153
+ground truth (number of trees): 518</code></pre>
+</div>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
