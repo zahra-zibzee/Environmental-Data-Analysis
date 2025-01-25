@@ -1,63 +1,79 @@
+import os
+from pathlib import Path
+
+import cv2
 import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.nn import functional as F
+from torch.utils.data import DataLoader, Dataset, random_split
 from torchvision import transforms
-from unet_parts import DoubleConv, Down, OutConv, Up
 from tqdm import tqdm
+from unet_model import UNet
 
-class UNet(nn.Module):
-    def __init__(self, n_channels, n_classes, bilinear=False):
-        super(UNet, self).__init__()
-        self.n_channels = n_channels
-        self.n_classes = n_classes
-        self.bilinear = bilinear
 
-        self.inc = DoubleConv(n_channels, 64)
-        self.down1 = Down(64, 128)
-        self.down2 = Down(128, 256)
-        self.down3 = Down(256, 512)
-        factor = 2 if bilinear else 1
-        self.down4 = Down(512, 1024 // factor)
-        self.up1 = Up(1024, 512 // factor, bilinear)
-        self.up2 = Up(512, 256 // factor, bilinear)
-        self.up3 = Up(256, 128 // factor, bilinear)
-        self.up4 = Up(128, 64, bilinear)
-        self.outc = OutConv(64, n_classes)
-
-    def forward(self, x):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
-        x = self.up3(x, x2)
-        x = self.up4(x, x1)
-        logits = self.outc(x)
-        return logits
-
-class VariableSegmentationDataset(Dataset):
-    def __init__(self, x_data: torch.Tensor, y_data: torch.Tensor, transform: transforms.Compose = None):
-        self.x_data = x_data
-        self.y_data = y_data
-        self.transform = transform
-        assert len(self.x_data) == len(self.y_data), "Mismatch between images and masks"
+class ImagesDataset(Dataset):
+    def __init__(
+        self,
+        images_folder: str | os.PathLike,
+        x_transform: transforms.Compose = None,
+        y_transform: transforms.Compose = None,
+        extend_radius: int = 20,
+    ):
+        self.images_folder = Path(images_folder)
+        self.x_transform = x_transform
+        self.y_transform = y_transform
+        self.images = list(self.images_folder.glob("depth*.png"))
+        self.masks = list(self.images_folder.glob("mask*.npy"))
+        assert (
+            len(self.images) == len(self.masks) != 0
+        ), f"Mismatch between images and masks, found {len(self.images)} images and {len(self.masks)} masks"
+        self.images.sort()
+        self.masks.sort()
 
     def __len__(self) -> int:
-        return len(self.x_data)
+        return len(self.images)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        x = self.x_data[idx]
-        y = self.y_data[idx]
-        if self.transform:
-            x = self.transform(x)
-            y = self.transform(y)
+        image_name = self.images[idx]
+        mask_name = self.masks[idx]
+
+        assert image_name.stem.replace("depth", "") == mask_name.stem.replace(
+            "mask", ""
+        ), f"Image and mask names do not match: {image_name.stem} and {mask_name.stem}"
+        x = cv2.imread(str(self.images[idx]), cv2.IMREAD_GRAYSCALE)
+        y = np.load(self.masks[idx])
+        ones_locations = np.array(np.where(y == 1)).T
+        y_shape = np.array(y.shape) - 1
+        for delta_x in [-1, 0, 1]:
+            for delta_y in [-1, 0, 1]:
+                new_ones_locations = np.clip(
+                    ones_locations + np.array([delta_x, delta_y]), 0, y_shape
+                )
+
+                y[new_ones_locations[:, 0], new_ones_locations[:, 1]] = 1
+
+        y = (
+            F.one_hot(torch.tensor(y).long(), num_classes=2)
+            # .permute(2, 0, 1)
+            .float().numpy()
+        )
+        if self.x_transform:
+            x = self.x_transform(x)
+
+        if self.y_transform:
+            y = self.y_transform(y)
         return x, y
 
-def train_one_epoch(model: nn.Module, dataloader: DataLoader, optimizer: optim.Optimizer, criterion: nn.Module, device: torch.device) -> float:
+
+def train_one_epoch(
+    model: nn.Module,
+    dataloader: DataLoader,
+    optimizer: optim.Optimizer,
+    criterion: nn.Module,
+    device: torch.device,
+) -> float:
     model.train()
     epoch_loss = 0.0
     for x, y in tqdm(dataloader):
@@ -70,7 +86,10 @@ def train_one_epoch(model: nn.Module, dataloader: DataLoader, optimizer: optim.O
         epoch_loss += loss.item()
     return epoch_loss / len(dataloader)
 
-def validate(model: nn.Module, dataloader: DataLoader, criterion: nn.Module, device: torch.device) -> float:
+
+def validate(
+    model: nn.Module, dataloader: DataLoader, criterion: nn.Module, device: torch.device
+) -> float:
     model.eval()
     val_loss = 0.0
     with torch.no_grad():
@@ -81,23 +100,41 @@ def validate(model: nn.Module, dataloader: DataLoader, criterion: nn.Module, dev
             val_loss += loss.item()
     return val_loss / len(dataloader)
 
-def train_model(x_data, y_data, model_save_path='unet_model.pth', epochs=10, batch_size=16, learning_rate=1e-3):
-    # Transformations
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=[0.5], std=[0.5])])
 
-    # Dataset and DataLoader
-    dataset = VariableSegmentationDataset(torch.from_numpy(x_data).unsqueeze(1).float(), torch.from_numpy(y_data).unsqueeze(1).float(), transform=None)
+def setup_model() -> tuple[nn.Module, optim.Optimizer, nn.Module, torch.device]:
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = UNet(n_channels=1, n_classes=2).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2.0]).to(device))
+    return model, optimizer, criterion, device
+
+
+def create_dataset(data_folder: str | os.PathLike, batch_size: int):
+    x_transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize(mean=[0.5], std=[0.5])]
+    )
+
+    dataset = ImagesDataset(
+        data_folder, x_transform=x_transform, y_transform=transforms.ToTensor()
+    )
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    return train_loader, val_loader
 
-    # Model setup
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = UNet(n_channels=1, n_classes=1).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2.0]).to(device))
+
+def train_model(
+    data_folder: str | os.PathLike,
+    model_save_path="unet_model.pth",
+    epochs=10,
+    batch_size=16,
+):
+    train_loader, val_loader = create_dataset(data_folder, batch_size)
+
+    model, optimizer, criterion, device = setup_model()
 
     # Training loop
     all_train_loss, all_val_loss = [], []
@@ -106,13 +143,18 @@ def train_model(x_data, y_data, model_save_path='unet_model.pth', epochs=10, bat
         val_loss = validate(model, val_loader, criterion, device)
         all_train_loss.append(train_loss)
         all_val_loss.append(val_loss)
-        print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+        print(
+            f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
+        )
 
     # Save the trained model
     torch.save(model.state_dict(), model_save_path)
     print(f"Model saved to {model_save_path}")
-    return all_train_loss, all_val_loss
+    np.save("train_val_loss.npy", np.array([all_train_loss, all_val_loss]))
+    print("Train and validation loss saved to train_val_loss.npy")
+    return all_train_loss, all_val_loss, model, train_loader, val_loader
+
 
 if __name__ == "__main__":
     # Example data (replace with your actual data)
-    pass
+    train_model("./data/patches", epochs=10)
