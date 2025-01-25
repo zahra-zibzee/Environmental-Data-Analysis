@@ -100,7 +100,7 @@ def evaluate_with_hungarian(true_coords, pred_coords, threshold=2.0):
     }
 
 
-def compute_rmse(true_coords, pred_coords):
+def compute_rmse(true_coords, pred_coords, *args):
     """
     Compute the Root Mean Squared Error (RMSE) between matched points.
 
@@ -120,7 +120,7 @@ def compute_rmse(true_coords, pred_coords):
     return np.sqrt(np.mean(matched_dists**2))
 
 
-def compute_mae(true_coords, pred_coords):
+def compute_mae(true_coords, pred_coords, *args):
     """
     Compute the Mean Absolute Error (MAE) between matched points.
 

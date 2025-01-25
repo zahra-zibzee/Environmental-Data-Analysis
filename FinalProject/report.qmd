@@ -178,6 +178,8 @@ print(gt_depth_map["label"].value_counts().sort_index())
 gt_depth_map
 ```
 
+We previously converted the x and y coordinates of the point cloud to integer values for simplicity. However, in this step, we use the original float values and define a step size to group points by their x and y coordinates. In this way, we increase the resolution and precision of the depth image.
+
 ```{python}
 from utils import take_photo_from_top
 
@@ -233,16 +235,18 @@ plt.show()
 
 ## Plot Rotation (Data Preprocessing)
 
-If we take a look at original plots, we realize that the rectangles have been rotated. 
-In order to rotate the images, we will take the following steps:
+When we examine the original plots, we notice that the rectangles have been rotated. To align the images correctly, we will take the following steps:
 
-To calculate the rotation angle:
-    - Sort the points by their y-coordinates to distinguish the top (2 points) and bottom (the rest) points.
-    - Further sort the top points by their x-coordinates.
-    - To calculate the angle, use arctan2(dy, dx) where dx and dy are the differences in x and y coordinates of the top points.
+### Calculating the Rotation Angle
+1. **Sort Points**: 
+    - First, we need to sort the points by their y-coordinates to distinguish the top two points and the bottom two points.
+    - Then, we did sort the top two points by their x-coordinates.
 
-    $$
-    \text{atan2}(y, x) =
+2. **Calculate the Angle**:
+    - Using the `arctan2` function, the angle between the top points has been calculated:
+    
+    $$ 
+    \text{atan2}(y, x) = 
     \begin{cases} 
     \arctan\left(\frac{y}{x}\right) & \text{if } x > 0, \\[10pt]
     \arctan\left(\frac{y}{x}\right) + \pi & \text{if } x < 0 \text{ and } y \geq 0, \\[10pt]
@@ -253,17 +257,30 @@ To calculate the rotation angle:
     \end{cases}
     $$
 
+### Rotating the Points
+1. **Define the Rotation Matrix**:
+    - Using the calculated angle \(\theta\) to define the rotation matrix:
 
-
-To rotate the points:
-    - Define a rotation matrix using the angle.
-    $$\begin{bmatrix}
+    $$
+    R = 
+    \begin{bmatrix}
     \cos(\theta) & -\sin(\theta) \\
     \sin(\theta) & \cos(\theta)
-    \end{bmatrix}$$
-    - Rotate the points using the rotation matrix:
-        `rotated_points = points @ rotation_matrix`
-    - Adjust the rotation based on the orientation (landscape or portrait).
+    \end{bmatrix}
+    $$
+
+2. **Rotate the Points**:
+    - By applying the rotation matrix to the points, we will get the rotated points:
+    
+    ```python
+    rotated_points = points @ rotation_matrix
+    ```
+    
+
+3. **Adjust the Orientation**:
+    - Based on the shape (landscape or portrait), we can adjust the rotation as well.
+
+
 
 
 
@@ -276,7 +293,6 @@ from utils import calculate_rotation_angle, turn_points
 ## Create The Depth Images for all the Data Grounds
 
 ```{python}
-# | eval: false
 from utils import create_dataset
 
 all_depth_imgs, all_masks, all_missing_pixels, angles = create_dataset(
@@ -287,7 +303,6 @@ all_depth_imgs, all_masks, all_missing_pixels, angles = create_dataset(
 ## Visualize the Depth Images - No Rotation
 
 ```{python}
-# | eval: false
 fig, axes = plt.subplots(5, 2, figsize=(10, 25))
 axes = axes.flatten()
 if len(all_depth_imgs) > len(axes):
@@ -315,7 +330,6 @@ plt.show()
 ## Visualize the Depth Images - With Rotation (Landscape)
 
 ```{python}
-# | eval: false
 all_depth_imgs, all_masks, all_missing_pixels, angles = create_dataset(
     "data/als", orientation="landscape")
 fig, axes = plt.subplots(5, 2, figsize=(10, 25))
@@ -344,7 +358,6 @@ plt.show()
 
 Let's check the images sizes:
 ```{python}
-# | eval: false
 for img in all_depth_imgs:
     print(img.shape)
 ``` 
@@ -384,24 +397,8 @@ plt.show()
 ```
 
 ## Model Architecture - Unet
-```{python}
-# | echo: false
-# | eval: false
-import torch
-import segmentation_models_pytorch as smp
 
-# Load a pretrained U-Net model with ResNet34 backbone
-model = smp.Unet(
-    encoder_name="resnet34",  # choose encoder, e.g. mobilenet_v2, efficientnet-b7
-    encoder_weights="imagenet",  # use pretrained weights
-    in_channels=3,  # input channels (e.g. 3 for RGB)
-    classes=1,
-)  # output channels (e.g. 1 for binary segmentation)
-
-# Check the model summary
-print(model)
-```
-
+>**Note:** A pretrained model was not utilized in this project because the images in our dataset differ significantly from the domain of images on which the pretrained model was originally trained.
 
 ## Model Architecture
 
@@ -493,7 +490,7 @@ model.load_state_dict(
     torch.load("unet_model.pth", map_location=device, weights_only=True)
 )
 model.eval()
-print(None)
+None
 ```
 
 ```{python}
@@ -544,10 +541,240 @@ plt.tight_layout()
 plt.show()
 ```
 
-In this pint 
+The model outputs a segmentation map—a binary matrix of 0s and 1s with the same dimensions as the input image. In this map, pixels with a value of 1 represent tree regions, while pixels with a value of 0 represent the background. However, to determine the final locations of individual trees, further post-processing is required to identify distinct tree positions from the segmentation output.
+
+One approach to achieve this is by using clustering algorithms. For example, **DBSCAN** is particularly suitable because it identifies clusters (tree locations) without requiring the number of clusters (trees) to be predefined. This is a significant advantage over algorithms like **k-means**, which require the number of clusters as an input—a parameter that is not known in this case, given the varying number of trees across different images.
+
+Alternatively, **image processing techniques** can be employed to find connected components in the binary segmentation map. Connected component analysis groups neighboring pixels with a value of 1 into distinct regions, each representing an individual tree. This method is computationally efficient and well-suited for binary data like segmentation maps, making it a reliable option for detecting tree locations in this context.
+
+Both approaches offer viable solutions, and the choice depends on factors like computational efficiency, the quality of the segmentation output, and the characteristics of the tree distribution in the images.
+
+When deciding between clustering algorithms and image processing techniques for extracting tree locations from a segmentation map, the choice largely depends on the specific characteristics of the problem:
+
+- **Image Processing (Connected Components Analysis):**
+This method is generally better for binary segmentation maps, as it is straightforward, computationally efficient, and does not require any additional hyperparameter tuning. It directly identifies distinct connected regions of pixels with a value of 1, making it highly reliable for well-defined and non-overlapping tree regions. However, it may struggle with noisy or fragmented segmentation maps, where tree regions are not clearly separated or contain gaps between pixels. To overcome these limitations, additional preprocessing steps like morphological operations (e.g., dilation and erosion) can be applied to refine the segmentation map before extracting tree locations.
+
+- **Clustering Algorithms (e.g., DBSCAN):**
+DBSCAN is better suited when the segmentation map has noise or when tree regions are not strictly connected but rather consist of scattered pixels. It can handle irregular shapes and separate clusters based on spatial density, making it more robust in noisy conditions. However, it requires tuning hyperparameters like the neighborhood radius (eps) and the minimum number of points in a cluster.
+
+
+The function is available in the `utils.py` file. The function is called `find_tree_locations`. 
+
+
+1. **Morphological Preprocessing:**  
+   - The segmentation map is converted to binary format if not already binary.
+   - A morphological opening operation (erosion followed by dilation) removes small noise regions while preserving the shape of larger tree regions. The kernel size determines the level of noise removal.
+
+2. **Connected Components Analysis:**  
+   - After cleaning, the connected components are labeled uniquely.
+   - The centroid of each labeled region is calculated using the `scipy.ndimage.center_of_mass` function, which identifies the approximate location of each tree.
+
+for instance, in the latest segmentation we had:
+```{python}
+from utils import find_tree_locations
+
+plt.imshow(img)
+plt.axis("off")
+plt.title("Segmentation Map")
+plt.show()
+
+trees = find_tree_locations(pred.astype(np.uint8))
+# print(
+#     f"Dectected trees are:",
+#     *[f"Tree {i + 1: >2d}: ({x:6.2f}, {y:6.2f})" for i, (x, y) in enumerate(trees)],
+#     sep="\n",
+# )
+pd.DataFrame(
+    trees, columns=["X", "Y"], index=[f"Tree {i + 1}" for i in range(len(trees))]
+)
+```
+
+```{python}
+gt_trees = find_tree_locations(mask.astype(np.uint8))
+pd.DataFrame(
+    gt_trees, columns=["X", "Y"], index=[f"Tree {i + 1}" for i in range(len(gt_trees))]
+)
+```
+
+
 ## Performance evaluation and insights
 
-???
+
+In this stage of the project, we address a critical challenge in tree detection: the number of ground truth trees (manually labeled) and predicted trees (from the detection model) may not be the same. Moreover, there is no predefined one-to-one correspondence between the two sets, making direct comparisons infeasible. To evaluate the accuracy of the detection model and understand the spatial relationships between ground truth and predicted trees, a systematic method is needed to compare their positions. 
+
+### Pairwise Distance Calculation
+
+The `compute_pairwise_distances` function solves this problem by calculating the pairwise Euclidean distances between the two sets of tree coordinates. This function produces a distance matrix, where each entry represents the spatial distance between a predicted tree and a ground truth tree. The matrix enables flexible matching and evaluation strategies, such as identifying the closest pairs or analyzing unmatched trees, even when the number of trees differs between the two sets. 
+
+The function relies on the `distance.cdist` method from the `scipy.spatial` module. This method efficiently computes all pairwise Euclidean distances between two sets of points. For each pair of points $(x_1, y_1)$ and $(x_2, y_2)$, it calculates the distance as:
+
+$$
+d = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}
+$$
+
+The resulting matrix has dimensions $M \times N$, where $M$ is the number of predicted trees and $N$ is the number of ground truth trees. This distance matrix provides the foundation for evaluating and refining the tree detection model's performance.
+
+### Evaluation with Threshold-Based Matching
+
+The `evaluate_with_threshold` assesses the performance of the detection model by comparing predicted and ground truth tree coordinates within a specified distance threshold. A prediction is considered correct if it is within the threshold distance of any ground truth tree.
+
+1. **Distance Matrix Calculation**: The function computes the pairwise distance matrix using the `compute_pairwise_distances` function.
+2. **Matching Predictions**: For each predicted tree, the minimum distance to any ground truth tree is calculated. It will be considered as a match if this distance is below the threshold.
+3. **Metrics Calculation**:
+   - **True Positives (TP)**: Count of predictions matched to ground truth within the threshold.
+   - **False Positives (FP)**: Predicted trees that are unmatched.
+   - **False Negatives (FN)**: Ground truth trees that are unmatched.
+   - **Precision, Recall, and F1-Score** are calculated using the TP, FP, and FN values.
+
+
+### Hungarian Algorithm for Optimal Matching
+
+The `evaluate_with_hungarian` function uses the Hungarian algorithm to find an optimal one-to-one correspondence between predicted and ground truth trees. This method minimizes the total distance between matched pairs and it ensures the most accurate evaluation possible.
+
+1. **Optimal Assignment**: Using the distance matrix, the Hungarian algorithm identifies the best matching pairs of predicted and ground truth trees.
+2. **Threshold Filtering**: Matched pairs exceeding the threshold distance are excluded. We only consider pairs with accurate predictions.
+3. **Metrics Calculation**:
+   - **True Positives (TP)**: Matched pairs within the threshold.
+   - **False Positives (FP)**: Predicted trees that remain unmatched after filtering.
+   - **False Negatives (FN)**: Ground truth trees that remain unmatched.
+
+
+### Error Metrics: RMSE and MAE
+
+To quantify the positional accuracy of matched pairs, we compute **Root Mean Squared Error (RMSE)** and **Mean Absolute Error (MAE)**. These metrics provide a smooth evaluation of the spatial accuracy of predictions.
+
+#### RMSE:
+- By calculating RMSE, we emphasize on larger errors, making it sensitive to outliers in the predictions.
+
+#### MAE:
+- By calculating MAE, we provide an average of absolute positional errors, offering a more balanced view of prediction accuracy.
+
+Both metrics rely on the optimal matching calculated by the Hungarian algorithm, to get a comprehensive and better understanding of the model's performance.
+
+Now lets evaluate the model using the above functions.
+
+```{python}
+from eval import (
+    evaluate_with_threshold,
+    evaluate_with_hungarian,
+    compute_rmse,
+    compute_mae,
+)
+
+threshold = 10
+for func in [
+    evaluate_with_threshold,
+    evaluate_with_hungarian,
+    compute_rmse,
+    compute_mae,
+]:
+    print(func.__name__)
+    out = func(gt_trees, trees, threshold)
+    if isinstance(out, dict):
+        print("\n".join(f"\t{k:<10}: {v}" for k, v in out.items()))
+    else:
+        print(out)
+    print("-----------------------------------")
+```
+
+### Evaluation over all the dataset
+
+```{python}
+from torch.utils.data import DataLoader
+from collections import defaultdict
+
+
+train_loader, val_loader = create_dataset("data/patches", batch_size=1)
+
+metrics = defaultdict(list)
+threshold = 10
+for img, mask in val_loader:
+    assert img.shape[0] == 1, "Batch size should be 1 for evaluation."
+    img = img.to(device)
+    mask = mask.to(device)
+    pred = model(img).detach().cpu()
+    mask = mask.squeeze().cpu().numpy().argmax(0)
+    pred = pred.squeeze().cpu().numpy().argmax(0)
+    if len(np.unique(mask)) == 1 or len(np.unique(pred)) == 1:
+        continue
+    gt_trees = find_tree_locations(mask.astype(np.uint8))
+    trees = find_tree_locations(pred.astype(np.uint8))
+    if not gt_trees.size or not trees.size:
+        continue
+    for func in [
+        evaluate_with_threshold,
+        evaluate_with_hungarian,
+        compute_rmse,
+        compute_mae,
+    ]:
+        out = func(gt_trees, trees, threshold)
+        if isinstance(out, dict):
+            for k, v in out.items():
+                metrics[f"{func.__name__}_{k}"].append(v)
+        else:
+            metrics[func.__name__].append(out)
+
+max_length = ml = max(len(k) for k in metrics.keys())
+for k, v in metrics.items():
+    if k.endswith("tives"):
+        metrics[k] = np.mean(v)
+    else:
+        print(f"{k:<{ml}}: {np.mean(v):.2f}")
+```
+
+```{python}
+fig, axes = plt.subplots(1, 2, figsize=(10, 10))
+
+conf_matrix_hungarian = [
+    [
+        metrics["evaluate_with_hungarian_true_positives"],
+        metrics["evaluate_with_hungarian_false_negatives"],
+    ],
+    [metrics["evaluate_with_hungarian_false_positives"], 0],
+]
+
+print(conf_matrix_hungarian)
+conf_matrix_threshold = [
+    [
+        metrics["evaluate_with_threshold_true_positives"],
+        metrics["evaluate_with_threshold_false_negatives"],
+    ],
+    [metrics["evaluate_with_threshold_false_positives"], 0],
+]
+print(conf_matrix_threshold)
+
+axes[0].imshow(conf_matrix_hungarian, cmap="Blues")
+axes[0].set_title("Hungarian Algorithm")
+axes[0].set_xticks([0, 1], ["Predicted", "Unmatched"])
+axes[0].set_yticks([0, 1], ["Ground Truth", "Unmatched"], rotation=90)
+
+
+axes[1].imshow(conf_matrix_threshold, cmap="Blues")
+axes[1].set_title("Threshold-Based Matching")
+axes[1].set_xticks([0, 1], ["Predicted", "Unmatched"])
+axes[1].set_yticks([0, 1], ["Ground Truth", "Unmatched"], rotation=90)
+
+for i in range(2):
+    for j in range(2):
+        axes[0].text(
+            j,
+            i,
+            f"{conf_matrix_hungarian[i][j]:.3f}",
+            ha="center",
+            va="center",
+            color="red",
+        )
+        axes[1].text(
+            j,
+            i,
+            f"{conf_matrix_threshold[i][j]:.3f}",
+            ha="center",
+            va="center",
+            color="red",
+        )
+
+plt.show()
+```
 
 
 ## Baseline Model (Local Maxima Filtering)
@@ -581,8 +808,9 @@ def local_maxima_filter(cloud: np.ndarray, window_size: float) -> np.ndarray:
             local_maxima.append(i)
 
     return cloud[local_maxima]
-
 ```
+
+Let's find the best window size for the local maxima filter.
 
 ```{python}
 
@@ -625,5 +853,5 @@ def test_local_maxima(window_sizes: list):
         # plt.ylabel('Frequency')
         # plt.show()
 
-test_local_maxima([3])
+test_local_maxima([2, 3, 4])
 ```

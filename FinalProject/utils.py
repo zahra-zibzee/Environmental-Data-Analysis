@@ -9,6 +9,7 @@ import pandas as pd
 import laspy
 import cv2
 from tqdm import tqdm
+from scipy.ndimage import label, center_of_mass
 
 
 def lidar_to_point_cloud(lidar_file: str | os.PathLike) -> np.ndarray:
@@ -280,6 +281,39 @@ def split_image_into_patches(
             ), f"Patch shape is {patch.shape}, expected {patch_size}"
             patches.append(patch)
     return patches
+
+
+def find_tree_locations(
+    segmentation_map: np.ndarray, kernel_size: int = 3
+) -> np.ndarray:
+    """
+    Extract tree locations from a binary segmentation map using morphological transforms
+    and connected components analysis.
+
+    Parameters:
+        segmentation_map (np.ndarray): Binary segmentation map of shape (H, W),
+                                        where 1 represents tree regions, and 0 represents the background.
+        kernel_size (int): Size of the structuring element for morphological operations.
+
+    Returns:
+        np.ndarray: Array of tree locations as (x, y) coordinates.
+    """
+    assert (
+        segmentation_map.ndim == 2
+    ), f"Segmentation map must be 2D, but got shape {segmentation_map.shape}"
+    assert np.unique(segmentation_map).tolist() == [
+        0,
+        1,
+    ], f"Segmentation map must be binary, but contains values {np.unique(segmentation_map)}"
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+    cleaned_map = cv2.morphologyEx(segmentation_map, cv2.MORPH_OPEN, kernel)
+
+    labeled_map, num_features = label(cleaned_map)
+    tree_locations = np.array(
+        center_of_mass(cleaned_map, labeled_map, range(1, num_features + 1))
+    )
+    return tree_locations
 
 
 if __name__ == "__main__":
